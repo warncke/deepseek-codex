@@ -318,7 +318,7 @@ export async function showInteractiveSpec(spec: string): Promise<void> {
   });
 }
 
-function findParent(nodes: SpecNode[], target: SpecNode): SpecNode | null {
+export function findParent(nodes: SpecNode[], target: SpecNode): SpecNode | null {
   for (const node of nodes) {
     if (node.children.includes(target)) return node;
     const found = findParent(node.children, target);
