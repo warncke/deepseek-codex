@@ -1,5 +1,3 @@
-TECHNICAL SPECIFICATION:
-
 # TECHNICAL SPECIFICATION
 
 ## Deepseek Codex CLI — Interactive AI-Assisted System Design Agent
@@ -51,7 +49,7 @@ interface IInferenceProvider {
 }
 
 interface ChatMessage {
-  role: "system" | "user" | "assistant";
+  role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
@@ -59,8 +57,8 @@ interface ChatOptions {
   model?: string;
   temperature?: number;
   maxTokens?: number;
-  thinking?: { type: "enabled" | "disabled" };
-  reasoningEffort?: "high" | "max";
+  thinking?: { type: 'enabled' | 'disabled' };
+  reasoningEffort?: 'high' | 'max';
   stream?: boolean;
 }
 ```
@@ -83,8 +81,8 @@ interface ChatOptions {
 
 ```typescript
 class DeepSeekProvider implements IInferenceProvider {
-  readonly providerName = "DeepSeek V4";
-  readonly apiKeyEnvVar = "DEEPSEEK_API_KEY";
+  readonly providerName = 'DeepSeek V4';
+  readonly apiKeyEnvVar = 'DEEPSEEK_API_KEY';
 
   constructor();
   // Reads apiKey from process.env.DEEPSEEK_API_KEY.
