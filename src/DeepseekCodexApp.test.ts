@@ -77,18 +77,20 @@ describe('DeepseekCodexApp', () => {
   });
 
   it('should exit on unsupported provider', async () => {
-    process.exit = jest.fn<() => never>().mockImplementation(() => {
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit');
     });
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const config = new AppConfig(['node', 'script.js', '--repl', '--provider', 'unsupported']);
     const app = new DeepseekCodexApp(config);
     await expect(app.initialize()).rejects.toThrow('process.exit');
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    exitSpy.mockRestore();
     consoleSpy.mockRestore();
   });
 
   it('should exit on missing prompt files', async () => {
-    process.exit = jest.fn<() => never>().mockImplementation(() => {
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit');
     });
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -96,6 +98,8 @@ describe('DeepseekCodexApp', () => {
     const config = new AppConfig(['node', 'script.js', '--repl']);
     const app = new DeepseekCodexApp(config);
     await expect(app.initialize()).rejects.toThrow('process.exit');
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    exitSpy.mockRestore();
     consoleSpy.mockRestore();
   });
 

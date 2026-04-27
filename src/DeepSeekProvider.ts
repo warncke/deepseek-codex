@@ -83,10 +83,17 @@ export class DeepSeekProvider implements IInferenceProvider {
         }
 
         const data = await response.json();
-        return data.choices[0].message.content;
+        const content = data.choices?.[0]?.message?.content;
+        if (content === undefined || content === null) {
+          throw new Error('API response missing message content');
+        }
+        return content;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
         if (err instanceof Error && err.message.startsWith('Authentication failed')) {
+          throw err;
+        }
+        if (err instanceof Error && err.message.startsWith('API response missing')) {
           throw err;
         }
         if (

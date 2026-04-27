@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "NODE_OPTIONS=--experimental-vm-modules npx jest --no-cache --config jest.config.cjs",
+    "test": "NODE_OPTIONS=--experimental-vm-modules npx jest --no-cache --config jest.config.cjs --coverage",
     "coverage": "NODE_OPTIONS=--experimental-vm-modules npx jest --no-cache --config jest.config.cjs --coverage --coverage-reporters=text --coverage-reporters=json-summary --coverage-reporters=lcov",
     "coverage:ci": "NODE_OPTIONS=--experimental-vm-modules npx jest --no-cache --config jest.config.cjs --coverage --coverage-reporters=json-summary --coverage-reporters=text --ci",
     "lint": "eslint src/ tests/",

@@ -248,4 +248,30 @@ describe('DeepSeekProvider', () => {
     await expect(provider.chat([{ role: 'user', content: 'Hi' }])).rejects.toThrow('null');
     expect(global.fetch).toHaveBeenCalledTimes(3);
   });
+
+  it('should throw when API response is missing choices[0].message.content', async () => {
+    global.fetch = jest.fn<typeof global.fetch>().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: {} }] }),
+    } as Response);
+
+    const provider = new DeepSeekProvider();
+    await expect(provider.chat([{ role: 'user', content: 'Hi' }])).rejects.toThrow(
+      'API response missing message content',
+    );
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('should throw when API response has null content', async () => {
+    global.fetch = jest.fn<typeof global.fetch>().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: null } }] }),
+    } as Response);
+
+    const provider = new DeepSeekProvider();
+    await expect(provider.chat([{ role: 'user', content: 'Hi' }])).rejects.toThrow(
+      'API response missing message content',
+    );
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
 });

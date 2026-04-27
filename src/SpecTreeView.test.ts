@@ -217,6 +217,32 @@ describe('SpecTreeView', () => {
       const output = renderTree([], 0);
       expect(output).toContain('Technical Specification');
     });
+
+    it('should render body lines with correct framing characters', () => {
+      const markdown = '# Title\n\nLine 1\nLine 2\nLine 3\n\n## Section';
+      const nodes = parseMarkdownHeadings(markdown);
+      nodes[0].showBody = true;
+      const output = renderTree(nodes, 0);
+      const lines = output.split('\n');
+      const bodyLines = lines.filter(
+        (l) => l.includes('Line 1') || l.includes('Line 2') || l.includes('Line 3'),
+      );
+      expect(bodyLines[0]).toContain('\u250C');
+      expect(bodyLines[bodyLines.length - 1]).toContain('\u2514');
+      expect(bodyLines.length).toBe(3);
+    });
+
+    it('should render selected body line with > marker', () => {
+      const markdown = '# Title\n\nBody text\n\n## Section';
+      const nodes = parseMarkdownHeadings(markdown);
+      nodes[0].showBody = true;
+      const flat = flattenTree(nodes);
+      const bodyIndex = flat.findIndex((f) => f.isBody);
+      const output = renderTree(nodes, bodyIndex);
+      const lines = output.split('\n');
+      const selectedLine = lines.find((l) => l.startsWith('\u2502>'));
+      expect(selectedLine).toContain('Body text');
+    });
   });
 
   describe('showInteractiveSpec', () => {
@@ -511,6 +537,338 @@ describe('SpecTreeView', () => {
       const promise = showInteractiveSpec('# H1\n\n## H2a');
 
       dataHandler!('\r');
+      dataHandler!('q');
+
+      await promise;
+
+      expect(stdoutWriteSpy).toHaveBeenCalled();
+      stdoutWriteSpy.mockRestore();
+      process.stdin.isTTY = orig.isTTY;
+      Object.defineProperty(process.stdin, 'isRaw', { value: orig.isRaw, writable: true });
+      (process.stdin as any).setRawMode = orig.setRawMode;
+      (process.stdin as any).resume = orig.resume;
+      (process.stdin as any).pause = orig.pause;
+      (process.stdin as any).setEncoding = orig.setEncoding;
+      (process.stdin as any).on = orig.on;
+      (process.stdin as any).removeListener = orig.removeListener;
+    });
+
+    it('should handle partial escape sequence buffers', async () => {
+      const orig = {
+        isTTY: process.stdin.isTTY,
+        isRaw: (process.stdin as any).isRaw,
+        setRawMode: process.stdin.setRawMode,
+        resume: process.stdin.resume,
+        pause: process.stdin.pause,
+        setEncoding: process.stdin.setEncoding,
+        on: process.stdin.on,
+        removeListener: process.stdin.removeListener,
+      };
+
+      process.stdin.isTTY = true;
+      Object.defineProperty(process.stdin, 'isRaw', { value: false, writable: true });
+      (process.stdin as any).setRawMode = jest.fn();
+      (process.stdin as any).resume = jest.fn();
+      (process.stdin as any).pause = jest.fn();
+      (process.stdin as any).setEncoding = jest.fn();
+      (process.stdin as any).removeListener = jest.fn();
+
+      const stdoutWriteSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      let dataHandler: ((chunk: string) => void) | null = null;
+      (process.stdin as any).on = jest.fn((_event: string, handler: (chunk: string) => void) => {
+        dataHandler = handler;
+      });
+
+      const promise = showInteractiveSpec('# Title\n\n## Section');
+
+      dataHandler!('\u001b');
+      dataHandler!('\u001b[');
+      dataHandler!('\u001b[A');
+      dataHandler!('q');
+
+      await promise;
+
+      expect(stdoutWriteSpy).toHaveBeenCalled();
+      stdoutWriteSpy.mockRestore();
+      process.stdin.isTTY = orig.isTTY;
+      Object.defineProperty(process.stdin, 'isRaw', { value: orig.isRaw, writable: true });
+      (process.stdin as any).setRawMode = orig.setRawMode;
+      (process.stdin as any).resume = orig.resume;
+      (process.stdin as any).pause = orig.pause;
+      (process.stdin as any).setEncoding = orig.setEncoding;
+      (process.stdin as any).on = orig.on;
+      (process.stdin as any).removeListener = orig.removeListener;
+    });
+
+    it('should handle right arrow on item with body to expand body', async () => {
+      const orig = {
+        isTTY: process.stdin.isTTY,
+        isRaw: (process.stdin as any).isRaw,
+        setRawMode: process.stdin.setRawMode,
+        resume: process.stdin.resume,
+        pause: process.stdin.pause,
+        setEncoding: process.stdin.setEncoding,
+        on: process.stdin.on,
+        removeListener: process.stdin.removeListener,
+      };
+
+      process.stdin.isTTY = true;
+      Object.defineProperty(process.stdin, 'isRaw', { value: false, writable: true });
+      (process.stdin as any).setRawMode = jest.fn();
+      (process.stdin as any).resume = jest.fn();
+      (process.stdin as any).pause = jest.fn();
+      (process.stdin as any).setEncoding = jest.fn();
+      (process.stdin as any).removeListener = jest.fn();
+
+      const stdoutWriteSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      let dataHandler: ((chunk: string) => void) | null = null;
+      (process.stdin as any).on = jest.fn((_event: string, handler: (chunk: string) => void) => {
+        dataHandler = handler;
+      });
+
+      const promise = showInteractiveSpec('# Title\n\nBody content\n\n## Section');
+
+      dataHandler!('\u001b[C');
+      dataHandler!('q');
+
+      await promise;
+
+      expect(stdoutWriteSpy).toHaveBeenCalled();
+      stdoutWriteSpy.mockRestore();
+      process.stdin.isTTY = orig.isTTY;
+      Object.defineProperty(process.stdin, 'isRaw', { value: orig.isRaw, writable: true });
+      (process.stdin as any).setRawMode = orig.setRawMode;
+      (process.stdin as any).resume = orig.resume;
+      (process.stdin as any).pause = orig.pause;
+      (process.stdin as any).setEncoding = orig.setEncoding;
+      (process.stdin as any).on = orig.on;
+      (process.stdin as any).removeListener = orig.removeListener;
+    });
+
+    it('should handle left arrow on body item to collapse', async () => {
+      const orig = {
+        isTTY: process.stdin.isTTY,
+        isRaw: (process.stdin as any).isRaw,
+        setRawMode: process.stdin.setRawMode,
+        resume: process.stdin.resume,
+        pause: process.stdin.pause,
+        setEncoding: process.stdin.setEncoding,
+        on: process.stdin.on,
+        removeListener: process.stdin.removeListener,
+      };
+
+      process.stdin.isTTY = true;
+      Object.defineProperty(process.stdin, 'isRaw', { value: false, writable: true });
+      (process.stdin as any).setRawMode = jest.fn();
+      (process.stdin as any).resume = jest.fn();
+      (process.stdin as any).pause = jest.fn();
+      (process.stdin as any).setEncoding = jest.fn();
+      (process.stdin as any).removeListener = jest.fn();
+
+      const stdoutWriteSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      let dataHandler: ((chunk: string) => void) | null = null;
+      (process.stdin as any).on = jest.fn((_event: string, handler: (chunk: string) => void) => {
+        dataHandler = handler;
+      });
+
+      const promise = showInteractiveSpec('# Title\n\nBody content\n\n## Section');
+
+      dataHandler!('\u001b[C');
+      dataHandler!('\u001b[D');
+      dataHandler!('q');
+
+      await promise;
+
+      expect(stdoutWriteSpy).toHaveBeenCalled();
+      stdoutWriteSpy.mockRestore();
+      process.stdin.isTTY = orig.isTTY;
+      Object.defineProperty(process.stdin, 'isRaw', { value: orig.isRaw, writable: true });
+      (process.stdin as any).setRawMode = orig.setRawMode;
+      (process.stdin as any).resume = orig.resume;
+      (process.stdin as any).pause = orig.pause;
+      (process.stdin as any).setEncoding = orig.setEncoding;
+      (process.stdin as any).on = orig.on;
+      (process.stdin as any).removeListener = orig.removeListener;
+    });
+
+    it('should handle Enter on item with children but no body', async () => {
+      const orig = {
+        isTTY: process.stdin.isTTY,
+        isRaw: (process.stdin as any).isRaw,
+        setRawMode: process.stdin.setRawMode,
+        resume: process.stdin.resume,
+        pause: process.stdin.pause,
+        setEncoding: process.stdin.setEncoding,
+        on: process.stdin.on,
+        removeListener: process.stdin.removeListener,
+      };
+
+      process.stdin.isTTY = true;
+      Object.defineProperty(process.stdin, 'isRaw', { value: false, writable: true });
+      (process.stdin as any).setRawMode = jest.fn();
+      (process.stdin as any).resume = jest.fn();
+      (process.stdin as any).pause = jest.fn();
+      (process.stdin as any).setEncoding = jest.fn();
+      (process.stdin as any).removeListener = jest.fn();
+
+      const stdoutWriteSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      let dataHandler: ((chunk: string) => void) | null = null;
+      (process.stdin as any).on = jest.fn((_event: string, handler: (chunk: string) => void) => {
+        dataHandler = handler;
+      });
+
+      const promise = showInteractiveSpec('# H1\n\n## H2a\n\n### H3a');
+
+      dataHandler!('\u001b[B');
+      dataHandler!('\u001b[B');
+      dataHandler!('\r');
+      dataHandler!('q');
+
+      await promise;
+
+      expect(stdoutWriteSpy).toHaveBeenCalled();
+      stdoutWriteSpy.mockRestore();
+      process.stdin.isTTY = orig.isTTY;
+      Object.defineProperty(process.stdin, 'isRaw', { value: orig.isRaw, writable: true });
+      (process.stdin as any).setRawMode = orig.setRawMode;
+      (process.stdin as any).resume = orig.resume;
+      (process.stdin as any).pause = orig.pause;
+      (process.stdin as any).setEncoding = orig.setEncoding;
+      (process.stdin as any).on = orig.on;
+      (process.stdin as any).removeListener = orig.removeListener;
+    });
+
+    it('should handle right arrow on item with body and children to expand children after body', async () => {
+      const orig = {
+        isTTY: process.stdin.isTTY,
+        isRaw: (process.stdin as any).isRaw,
+        setRawMode: process.stdin.setRawMode,
+        resume: process.stdin.resume,
+        pause: process.stdin.pause,
+        setEncoding: process.stdin.setEncoding,
+        on: process.stdin.on,
+        removeListener: process.stdin.removeListener,
+      };
+
+      process.stdin.isTTY = true;
+      Object.defineProperty(process.stdin, 'isRaw', { value: false, writable: true });
+      (process.stdin as any).setRawMode = jest.fn();
+      (process.stdin as any).resume = jest.fn();
+      (process.stdin as any).pause = jest.fn();
+      (process.stdin as any).setEncoding = jest.fn();
+      (process.stdin as any).removeListener = jest.fn();
+
+      const stdoutWriteSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      let dataHandler: ((chunk: string) => void) | null = null;
+      (process.stdin as any).on = jest.fn((_event: string, handler: (chunk: string) => void) => {
+        dataHandler = handler;
+      });
+
+      const promise = showInteractiveSpec('# Title\n\nBody\n\n## Section');
+
+      dataHandler!('\u001b[C');
+      dataHandler!('\u001b[C');
+      dataHandler!('q');
+
+      await promise;
+
+      expect(stdoutWriteSpy).toHaveBeenCalled();
+      stdoutWriteSpy.mockRestore();
+      process.stdin.isTTY = orig.isTTY;
+      Object.defineProperty(process.stdin, 'isRaw', { value: orig.isRaw, writable: true });
+      (process.stdin as any).setRawMode = orig.setRawMode;
+      (process.stdin as any).resume = orig.resume;
+      (process.stdin as any).pause = orig.pause;
+      (process.stdin as any).setEncoding = orig.setEncoding;
+      (process.stdin as any).on = orig.on;
+      (process.stdin as any).removeListener = orig.removeListener;
+    });
+
+    it('should handle left arrow on body item to collapse and jump to heading', async () => {
+      const orig = {
+        isTTY: process.stdin.isTTY,
+        isRaw: (process.stdin as any).isRaw,
+        setRawMode: process.stdin.setRawMode,
+        resume: process.stdin.resume,
+        pause: process.stdin.pause,
+        setEncoding: process.stdin.setEncoding,
+        on: process.stdin.on,
+        removeListener: process.stdin.removeListener,
+      };
+
+      process.stdin.isTTY = true;
+      Object.defineProperty(process.stdin, 'isRaw', { value: false, writable: true });
+      (process.stdin as any).setRawMode = jest.fn();
+      (process.stdin as any).resume = jest.fn();
+      (process.stdin as any).pause = jest.fn();
+      (process.stdin as any).setEncoding = jest.fn();
+      (process.stdin as any).removeListener = jest.fn();
+
+      const stdoutWriteSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      let dataHandler: ((chunk: string) => void) | null = null;
+      (process.stdin as any).on = jest.fn((_event: string, handler: (chunk: string) => void) => {
+        dataHandler = handler;
+      });
+
+      const promise = showInteractiveSpec('# Title\n\nBody content\n\n## Section');
+
+      dataHandler!('\u001b[C');
+      dataHandler!('\u001b[B');
+      dataHandler!('\u001b[D');
+      dataHandler!('q');
+
+      await promise;
+
+      expect(stdoutWriteSpy).toHaveBeenCalled();
+      stdoutWriteSpy.mockRestore();
+      process.stdin.isTTY = orig.isTTY;
+      Object.defineProperty(process.stdin, 'isRaw', { value: orig.isRaw, writable: true });
+      (process.stdin as any).setRawMode = orig.setRawMode;
+      (process.stdin as any).resume = orig.resume;
+      (process.stdin as any).pause = orig.pause;
+      (process.stdin as any).setEncoding = orig.setEncoding;
+      (process.stdin as any).on = orig.on;
+      (process.stdin as any).removeListener = orig.removeListener;
+    });
+
+    it('should handle left arrow on collapsed child to find parent', async () => {
+      const orig = {
+        isTTY: process.stdin.isTTY,
+        isRaw: (process.stdin as any).isRaw,
+        setRawMode: process.stdin.setRawMode,
+        resume: process.stdin.resume,
+        pause: process.stdin.pause,
+        setEncoding: process.stdin.setEncoding,
+        on: process.stdin.on,
+        removeListener: process.stdin.removeListener,
+      };
+
+      process.stdin.isTTY = true;
+      Object.defineProperty(process.stdin, 'isRaw', { value: false, writable: true });
+      (process.stdin as any).setRawMode = jest.fn();
+      (process.stdin as any).resume = jest.fn();
+      (process.stdin as any).pause = jest.fn();
+      (process.stdin as any).setEncoding = jest.fn();
+      (process.stdin as any).removeListener = jest.fn();
+
+      const stdoutWriteSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      let dataHandler: ((chunk: string) => void) | null = null;
+      (process.stdin as any).on = jest.fn((_event: string, handler: (chunk: string) => void) => {
+        dataHandler = handler;
+      });
+
+      const promise = showInteractiveSpec('# H1\n\n## H2a\n\n### H3a');
+
+      dataHandler!('\u001b[B');
+      dataHandler!('\u001b[B');
+      dataHandler!('\u001b[D');
       dataHandler!('q');
 
       await promise;

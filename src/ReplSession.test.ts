@@ -180,6 +180,16 @@ describe('ReplSession', () => {
       expect(consoleSpy.mock.calls[0][0]).toContain('Failed to load prompt');
       consoleSpy.mockRestore();
     });
+
+    it('should handle load failure with non-Error thrown', async () => {
+      mockLoader.loadPrompt.mockRejectedValue('string error');
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const loadCmd = session.commands.get('load')!;
+      await loadCmd.execute(['nonexistent'], session);
+      expect(consoleSpy).toHaveBeenCalled();
+      expect(consoleSpy.mock.calls[0][0]).toContain('Failed to load prompt');
+      consoleSpy.mockRestore();
+    });
   });
 
   describe('/chat command', () => {
@@ -211,6 +221,16 @@ describe('ReplSession', () => {
       await chatCmd.execute(['Hello'], session);
       expect(consoleSpy).toHaveBeenCalled();
       expect(consoleSpy.mock.calls[0][1]).toContain('API error');
+      consoleSpy.mockRestore();
+    });
+
+    it('should handle chat error with non-Error thrown', async () => {
+      mockProvider.chat.mockRejectedValue('string error');
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const chatCmd = session.commands.get('chat')!;
+      await chatCmd.execute(['Hello'], session);
+      expect(consoleSpy).toHaveBeenCalled();
+      expect(consoleSpy.mock.calls[0][1]).toContain('string error');
       consoleSpy.mockRestore();
     });
   });
@@ -249,6 +269,17 @@ describe('ReplSession', () => {
       await appendCmd.execute([], session);
       expect(consoleSpy).toHaveBeenCalled();
       expect(consoleSpy.mock.calls[0][1]).toContain('Read error');
+      consoleSpy.mockRestore();
+    });
+
+    it('should handle append failure with non-Error thrown', async () => {
+      session.messages.push({ role: 'assistant', content: 'Content' });
+      mockLoader.loadTechnicalSpec.mockRejectedValue('string error');
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const appendCmd = session.commands.get('append-spec')!;
+      await appendCmd.execute([], session);
+      expect(consoleSpy).toHaveBeenCalled();
+      expect(consoleSpy.mock.calls[0][1]).toContain('string error');
       consoleSpy.mockRestore();
     });
   });
@@ -290,6 +321,16 @@ describe('ReplSession', () => {
       await runCmd.execute(['system-design-agent'], session);
       expect(consoleSpy).toHaveBeenCalled();
       expect(consoleSpy.mock.calls[0][1]).toContain('Load error');
+      consoleSpy.mockRestore();
+    });
+
+    it('should handle run failure with non-Error thrown', async () => {
+      mockLoader.loadPrompt.mockRejectedValue('string error');
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const runCmd = session.commands.get('run')!;
+      await runCmd.execute(['system-design-agent'], session);
+      expect(consoleSpy).toHaveBeenCalled();
+      expect(consoleSpy.mock.calls[0][1]).toContain('string error');
       consoleSpy.mockRestore();
     });
   });
@@ -346,6 +387,16 @@ describe('ReplSession', () => {
       expect(mockClose).not.toHaveBeenCalled();
       expect(consoleSpy).toHaveBeenCalled();
       expect(consoleSpy.mock.calls[0][1]).toContain('Spec load error');
+      consoleSpy.mockRestore();
+    });
+
+    it('should handle spec load failure with non-Error thrown', async () => {
+      mockLoader.loadTechnicalSpec.mockRejectedValue('string error');
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const specCmd = session.commands.get('spec')!;
+      await specCmd.execute([], session);
+      expect(consoleSpy).toHaveBeenCalled();
+      expect(consoleSpy.mock.calls[0][1]).toContain('string error');
       consoleSpy.mockRestore();
     });
   });
@@ -470,6 +521,21 @@ describe('ReplSession', () => {
       consoleSpy.mockRestore();
     });
 
+    it('should break loop when running is false at top of iteration', async () => {
+      mockNext
+        .mockResolvedValueOnce({ done: false, value: '/exit' })
+        .mockResolvedValueOnce({ done: false, value: 'should not be processed' })
+        .mockResolvedValueOnce({ done: true, value: undefined as unknown as string });
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+      await session.start();
+
+      expect(session.running).toBe(false);
+      expect(consoleSpy).not.toHaveBeenCalledWith('Type /help for available commands.');
+      consoleSpy.mockRestore();
+    });
+
     it('should handle command execution error gracefully', async () => {
       const errorCmd: IReplCommand = {
         description: 'Error command',
@@ -488,6 +554,27 @@ describe('ReplSession', () => {
 
       expect(consoleSpy).toHaveBeenCalled();
       expect(consoleSpy.mock.calls[0][1]).toContain('Command failed');
+      consoleSpy.mockRestore();
+    });
+
+    it('should handle command execution error with non-Error thrown', async () => {
+      const errorCmd: IReplCommand = {
+        description: 'Error command',
+        execute: jest.fn<() => Promise<void>>().mockRejectedValue('string error'),
+      };
+      session.registerCommand('error-cmd', errorCmd);
+
+      mockNext
+        .mockResolvedValueOnce({ done: false, value: '/error-cmd' })
+        .mockResolvedValueOnce({ done: false, value: '/exit' })
+        .mockResolvedValueOnce({ done: true, value: undefined as unknown as string });
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await session.start();
+
+      expect(consoleSpy).toHaveBeenCalled();
+      expect(consoleSpy.mock.calls[0][1]).toContain('string error');
       consoleSpy.mockRestore();
     });
   });
