@@ -24,6 +24,8 @@ describe('AppConfig', () => {
     expect(config.baseUrl).toBeUndefined();
     expect(config.model).toBeUndefined();
     expect(config.apiKey).toBeUndefined();
+    expect(config.repl).toBe(false);
+    expect(config.help).toBe(false);
   });
 
   it('should parse --prompts-dir', () => {
@@ -49,6 +51,46 @@ describe('AppConfig', () => {
   it('should parse --api-key', () => {
     const config = new AppConfig(['node', 'script.js', '--api-key', 'sk-test']);
     expect(config.apiKey).toBe('sk-test');
+  });
+
+  it('should parse --repl flag', () => {
+    const config = new AppConfig(['node', 'script.js', '--repl']);
+    expect(config.repl).toBe(true);
+  });
+
+  it('should parse --help flag', () => {
+    const config = new AppConfig(['node', 'script.js', '--help']);
+    expect(config.help).toBe(true);
+  });
+
+  it('should parse --repl alongside other options', () => {
+    const config = new AppConfig([
+      'node',
+      'script.js',
+      '--repl',
+      '--prompts-dir',
+      '/custom',
+      '--model',
+      'test-model',
+    ]);
+    expect(config.repl).toBe(true);
+    expect(config.promptsDir).toBe('/custom');
+    expect(config.model).toBe('test-model');
+  });
+
+  it('should print help with all options', () => {
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    AppConfig.printHelp();
+    expect(consoleSpy).toHaveBeenCalled();
+    const output = consoleSpy.mock.calls.map((c) => c[0]).join('\n');
+    expect(output).toContain('--repl');
+    expect(output).toContain('--prompts-dir');
+    expect(output).toContain('--provider');
+    expect(output).toContain('--base-url');
+    expect(output).toContain('--model');
+    expect(output).toContain('--api-key');
+    expect(output).toContain('--help');
+    consoleSpy.mockRestore();
   });
 });
 

@@ -4,6 +4,8 @@ export class AppConfig {
   readonly baseUrl?: string;
   readonly model?: string;
   readonly apiKey?: string;
+  readonly repl: boolean;
+  readonly help: boolean;
 
   constructor(argv: string[]) {
     const args = argv.slice(2);
@@ -13,6 +15,8 @@ export class AppConfig {
     let baseUrl: string | undefined;
     let model: string | undefined;
     let apiKey: string | undefined;
+    let repl = false;
+    let help = false;
 
     for (let i = 0; i < args.length; i++) {
       switch (args[i]) {
@@ -31,6 +35,12 @@ export class AppConfig {
         case '--api-key':
           apiKey = args[++i];
           break;
+        case '--repl':
+          repl = true;
+          break;
+        case '--help':
+          help = true;
+          break;
       }
     }
 
@@ -39,5 +49,21 @@ export class AppConfig {
     this.baseUrl = baseUrl;
     this.model = model;
     this.apiKey = apiKey;
+    this.repl = repl;
+    this.help = help;
+  }
+
+  static printHelp(): void {
+    console.log(`Usage: deepseek-codex [options]
+
+Options:
+  --repl                 Start the interactive REPL session
+  --prompts-dir <path>   Path to prompts directory (default: ./prompts)
+  --provider <name>      Inference provider (default: deepseek)
+  --base-url <url>       Custom API base URL
+  --model <name>         Model name override
+  --api-key <key>        API key override
+  --help                 Show this help message and exit
+`);
   }
 }

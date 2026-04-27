@@ -4,6 +4,11 @@ import { DeepseekCodexApp } from './DeepseekCodexApp.js';
 async function main(): Promise<void> {
   const config = new AppConfig(process.argv);
 
+  if (config.help || !config.repl) {
+    AppConfig.printHelp();
+    process.exit(0);
+  }
+
   if (process.version) {
     const version = process.version.slice(1);
     const major = parseInt(version.split('.')[0], 10);
