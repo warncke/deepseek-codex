@@ -7,11 +7,11 @@ Output every file needed for the package, each in a separate code block with a h
 
 - Use TypeScript with ESM output. `tsconfig.json` must set `"module": "ES2022"`, `"target": "ES2022"`, `"outDir": "lib"`, `"rootDir": "src"`, and `"strict": true`.
 - Target Node.js ≥ 18. Use only Node.js built-in modules (`node:readline`, `node:fs/promises`, `fetch`) — no external dependencies.
-- Package name: `prompt-workflow`. `package.json` must have `"type": "module"` and a `bin` entry: `"bin": { "prompt-workflow": "./bin/prompt-workflow.mjs" }`.
-- The `bin/prompt-workflow.mjs` entry point must start with `#!/usr/bin/env node` and import from `../lib/index.js` (the compiled TypeScript).
+- Package name: `deepseek-coder`. `package.json` must have `"type": "module"` and a `bin` entry: `"bin": { "deepseek-coder": "./bin/deepseek-coder.mjs" }`.
+- The `bin/deepseek-coder.mjs` entry point must start with `#!/usr/bin/env node` and import from `../lib/index.js` (the compiled TypeScript).
 - Define an ESLint config using `@typescript-eslint/parser` and `@typescript-eslint/eslint-plugin`, with `eslint:recommended` and the TypeScript recommended rules. Use `.eslintrc.cjs` format. The environment should include `node: true` and `es2022: true`.
 - Prettier config with `semi: true`, `singleQuote: true`, `trailingComma: "all"`.
-- Testing with Jest (via `ts-jest` with ESM support). The test file is `tests/prompt-workflow.test.ts`. It must include:
+- Testing with Jest (via `ts-jest` with ESM support). The test file is `tests/deepseek-coder.test.ts`. It must include:
   - Unit tests for `PromptLoader` (using `jest.mock` for `fs/promises`).
   - Unit tests for `AppConfig` (parsing various CLI arguments).
   - Unit tests for `DeepSeekProvider` (mocking the global `fetch` to test success, 401, 429, retry logic).
