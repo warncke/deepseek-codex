@@ -42,9 +42,7 @@ Goal: In the current directory (which already contains `.clinerules` and a `prom
    - `src/SpecTreeView.ts`
    - `src/DeepseekCodexApp.ts`
    - `src/index.ts`
-   - `bin/deepseek-coder.mjs` (make executable)
    - `bin/deepseek-codex.mjs` (make executable)
-   - `tests/deepseek-coder.test.ts`
    - `tests/deepseek-codex.test.ts`
 
 5. After writing all files, run:
