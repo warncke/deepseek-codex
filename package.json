@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "bin": {
-    "deepseek-codex": "./bin/deepseek-coder.mjs"
+    "deepseek-codex": "./bin/deepseek-codex.mjs"
   },
   "files": [
     "bin/",

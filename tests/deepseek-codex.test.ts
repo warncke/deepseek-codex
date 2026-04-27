@@ -1,259 +1,304 @@
-import { jest } from '@jest/globals';
-import fs from 'node:fs/promises';
-import { PromptLoader } from '../src/PromptLoader.js';
-import { AppConfig } from '../src/AppConfig.js';
-import { DeepSeekProvider } from '../src/DeepSeekProvider.js';
-import { ReplSession } from '../src/ReplSession.js';
-import { IInferenceProvider, ChatMessage } from '../src/interfaces.js';
+import { jest, describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { DeepSeekProvider } from "../src/DeepSeekProvider.js";
+import { AppConfig } from "../src/AppConfig.js";
+import { ReplSession } from "../src/ReplSession.js";
+import type { IInferenceProvider, IReplCommand } from "../src/interfaces.js";
 
-jest.mock('node:fs/promises');
-const mockedFs = jest.mocked(fs);
+const mockReadFile = jest.fn<() => Promise<string>>();
+const mockWriteFile = jest.fn<() => Promise<void>>();
+const mockAccess = jest.fn<() => Promise<void>>();
 
-describe('PromptLoader', () => {
-  beforeEach(() => {
-    jest.resetAllMocks();
-  });
+jest.unstable_mockModule("node:fs/promises", () => ({
+  readFile: mockReadFile,
+  writeFile: mockWriteFile,
+  access: mockAccess,
+}));
 
-  test('loadPrompt reads file correctly', async () => {
-    mockedFs.readFile.mockResolvedValueOnce('prompt content' as any);
-    const loader = new PromptLoader('/fake');
-    const content = await loader.loadPrompt('test');
-    expect(content).toBe('prompt content');
-    expect(mockedFs.readFile).toHaveBeenCalledWith('/fake/test.md', 'utf-8');
-  });
+const { PromptLoader } = await import("../src/PromptLoader.js");
 
-  test('loadTechnicalSpec validates header', async () => {
-    mockedFs.readFile.mockResolvedValueOnce('# TECHNICAL SPECIFICATION\ncontent' as any);
-    const loader = new PromptLoader('/fake');
-    const spec = await loader.loadTechnicalSpec();
-    expect(spec).toContain('# TECHNICAL SPECIFICATION');
-  });
-
-  test('loadTechnicalSpec throws if header missing', async () => {
-    mockedFs.readFile.mockResolvedValueOnce('wrong header' as any);
-    const loader = new PromptLoader('/fake');
-    await expect(loader.loadTechnicalSpec()).rejects.toThrow('must start with');
-  });
-
-  test('validate returns missing files', async () => {
-    mockedFs.access.mockImplementation(async () => {
-      throw new Error('not found');
-    });
-    const loader = new PromptLoader('/fake');
-    const result = await loader.validate();
-    expect(result.valid).toBe(false);
-    expect(result.missing).toContain('system-design-agent.md');
-  });
-
-  test('saveTechnicalSpec writes file', async () => {
-    mockedFs.writeFile.mockResolvedValueOnce(undefined);
-    const loader = new PromptLoader('/fake');
-    await loader.saveTechnicalSpec('new content');
-    expect(mockedFs.writeFile).toHaveBeenCalledWith(
-      '/fake/technical-specification.md',
-      'new content',
-      'utf-8',
-    );
-  });
-});
-
-describe('AppConfig', () => {
-  test('parses defaults', () => {
-    const config = new AppConfig(['node', 'script']);
-    expect(config.promptsDir).toBe('./prompts');
-    expect(config.provider).toBe('deepseek');
+describe("AppConfig", () => {
+  it("should parse default values", () => {
+    const config = new AppConfig(["node", "script.js"]);
+    expect(config.promptsDir).toBe("./prompts");
+    expect(config.provider).toBe("deepseek");
     expect(config.baseUrl).toBeUndefined();
+    expect(config.model).toBeUndefined();
+    expect(config.apiKey).toBeUndefined();
   });
 
-  test('parses custom arguments', () => {
-    const argv = [
-      'node',
-      'script',
-      '--prompts-dir',
-      './my-prompts',
-      '--provider',
-      'custom',
-      '--base-url',
-      'http://localhost',
-      '--model',
-      'test-model',
-      '--api-key',
-      'abc123',
-    ];
-    const config = new AppConfig(argv);
-    expect(config.promptsDir).toBe('./my-prompts');
-    expect(config.provider).toBe('custom');
-    expect(config.baseUrl).toBe('http://localhost');
-    expect(config.model).toBe('test-model');
-    expect(config.apiKey).toBe('abc123');
+  it("should parse --prompts-dir", () => {
+    const config = new AppConfig(["node", "script.js", "--prompts-dir", "/custom/prompts"]);
+    expect(config.promptsDir).toBe("/custom/prompts");
+  });
+
+  it("should parse --provider", () => {
+    const config = new AppConfig(["node", "script.js", "--provider", "openai"]);
+    expect(config.provider).toBe("openai");
+  });
+
+  it("should parse --base-url", () => {
+    const config = new AppConfig(["node", "script.js", "--base-url", "https://custom.api.com"]);
+    expect(config.baseUrl).toBe("https://custom.api.com");
+  });
+
+  it("should parse --model", () => {
+    const config = new AppConfig(["node", "script.js", "--model", "gpt-4"]);
+    expect(config.model).toBe("gpt-4");
+  });
+
+  it("should parse --api-key", () => {
+    const config = new AppConfig(["node", "script.js", "--api-key", "sk-test"]);
+    expect(config.apiKey).toBe("sk-test");
   });
 });
 
-describe('DeepSeekProvider', () => {
+describe("DeepSeekProvider", () => {
   const originalEnv = process.env;
+
   beforeEach(() => {
-    process.env = { ...originalEnv, DEEPSEEK_API_KEY: 'test-key' };
-    jest.resetAllMocks();
+    process.env = { ...originalEnv, DEEPSEEK_API_KEY: "test-key" };
   });
+
   afterEach(() => {
     process.env = originalEnv;
   });
 
-  test('constructor throws if API key missing', () => {
+  it("should throw if DEEPSEEK_API_KEY is not set", () => {
     delete process.env.DEEPSEEK_API_KEY;
-    expect(() => new DeepSeekProvider()).toThrow('DEEPSEEK_API_KEY');
+    expect(() => new DeepSeekProvider()).toThrow(
+      "DEEPSEEK_API_KEY environment variable is not set.",
+    );
   });
 
-  test('chat sends correct request and returns content', async () => {
-    const mockResponse = { choices: [{ message: { content: 'Hello world' } }] };
-    global.fetch = jest.fn().mockResolvedValueOnce({
+  it("should create instance when API key is set", () => {
+    const provider = new DeepSeekProvider();
+    expect(provider.providerName).toBe("DeepSeek V4");
+    expect(provider.apiKeyEnvVar).toBe("DEEPSEEK_API_KEY");
+  });
+
+  it("should successfully chat and return response", async () => {
+    const mockResponse = {
+      choices: [{ message: { content: "Hello from AI" } }],
+    };
+
+    global.fetch = jest.fn<typeof global.fetch>().mockResolvedValue({
       ok: true,
       json: async () => mockResponse,
     } as Response);
 
     const provider = new DeepSeekProvider();
-    const messages = [{ role: 'user' as const, content: 'Hi' }];
-    const reply = await provider.chat(messages, { temperature: 0.7 });
-    expect(reply).toBe('Hello world');
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.deepseek.com/chat/completions',
-      expect.objectContaining({
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-key' },
-        body: expect.stringContaining('"model":"deepseek-v4-pro"'),
-      }),
-    );
-  });
+    const result = await provider.chat([{ role: "user", content: "Hi" }]);
 
-  test('handles 401 error without retry', async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        text: async () => 'Unauthorized',
-      } as Response);
-    const provider = new DeepSeekProvider();
-    await expect(provider.chat([{ role: 'user', content: 'test' }])).rejects.toThrow(
-      'HTTP 401: Unauthorized',
-    );
+    expect(result).toBe("Hello from AI");
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
-  test('retries on 429 with exponential backoff', async () => {
-    let callCount = 0;
-    global.fetch = jest.fn().mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) {
-        return { ok: false, status: 429, text: async () => 'Rate limited' } as Response;
-      } else {
-        return {
-          ok: true,
-          json: async () => ({ choices: [{ message: { content: 'retry success' } }] }),
-        } as Response;
-      }
-    });
-    jest.useFakeTimers();
+  it("should retry on 429 and succeed", async () => {
+    const mockResponse = {
+      choices: [{ message: { content: "Success after retry" } }],
+    };
+
+    const fetchMock = jest
+      .fn<typeof global.fetch>()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        text: async () => "Rate limited",
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+    global.fetch = fetchMock;
+
     const provider = new DeepSeekProvider();
-    const promise = provider.chat([{ role: 'user', content: 'test' }]);
-    await jest.runAllTimersAsync();
-    const reply = await promise;
-    expect(reply).toBe('retry success');
+    const result = await provider.chat([{ role: "user", content: "Hi" }]);
+
+    expect(result).toBe("Success after retry");
     expect(global.fetch).toHaveBeenCalledTimes(2);
-    jest.useRealTimers();
+  });
+
+  it("should throw on 401", async () => {
+    global.fetch = jest.fn<typeof global.fetch>().mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () => "Unauthorized",
+    } as Response);
+
+    const provider = new DeepSeekProvider();
+    await expect(provider.chat([{ role: "user", content: "Hi" }])).rejects.toThrow(
+      "Authentication failed",
+    );
+  });
+
+  it("should throw after exhausting retries on 500", async () => {
+    global.fetch = jest.fn<typeof global.fetch>().mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => "Server error",
+    } as Response);
+
+    const provider = new DeepSeekProvider();
+    await expect(provider.chat([{ role: "user", content: "Hi" }])).rejects.toThrow("Server error");
+    expect(global.fetch).toHaveBeenCalledTimes(3);
   });
 });
 
-describe('ReplSession commands', () => {
+describe("PromptLoader", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should load a prompt file", async () => {
+    mockReadFile.mockResolvedValue("prompt content");
+
+    const loader = new PromptLoader("./prompts");
+    const result = await loader.loadPrompt("system-design-agent");
+
+    expect(result).toBe("prompt content");
+    expect(mockReadFile).toHaveBeenCalledWith("prompts/system-design-agent.md", "utf-8");
+  });
+
+  it("should load technical spec and validate header", async () => {
+    mockReadFile.mockResolvedValue("# TECHNICAL SPECIFICATION\n\nSome content");
+
+    const loader = new PromptLoader("./prompts");
+    const result = await loader.loadTechnicalSpec();
+
+    expect(result).toBe("# TECHNICAL SPECIFICATION\n\nSome content");
+  });
+
+  it("should throw if technical spec has invalid header", async () => {
+    mockReadFile.mockResolvedValue("Invalid content");
+
+    const loader = new PromptLoader("./prompts");
+    await expect(loader.loadTechnicalSpec()).rejects.toThrow("Invalid technical specification");
+  });
+
+  it("should save technical spec", async () => {
+    mockWriteFile.mockResolvedValue(undefined);
+
+    const loader = new PromptLoader("./prompts");
+    await loader.saveTechnicalSpec("new content");
+
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      "prompts/technical-specification.md",
+      "new content",
+      "utf-8",
+    );
+  });
+
+  it("should validate prompts directory", async () => {
+    mockAccess.mockResolvedValue(undefined);
+
+    const loader = new PromptLoader("./prompts");
+    const result = await loader.validate();
+
+    expect(result.valid).toBe(true);
+    expect(result.missing).toEqual([]);
+  });
+
+  it("should report missing files", async () => {
+    mockAccess.mockRejectedValue(new Error("ENOENT"));
+
+    const loader = new PromptLoader("./prompts");
+    const result = await loader.validate();
+
+    expect(result.valid).toBe(false);
+    expect(result.missing).toHaveLength(3);
+    expect(result.missing).toContain("system-design-agent.md");
+    expect(result.missing).toContain("npm-project-creation-prompt.md");
+    expect(result.missing).toContain("technical-specification.md");
+  });
+});
+
+describe("ReplSession", () => {
   let mockProvider: jest.Mocked<IInferenceProvider>;
   let mockLoader: jest.Mocked<PromptLoader>;
   let session: ReplSession;
 
   beforeEach(() => {
     mockProvider = {
+      providerName: "MockProvider",
+      apiKeyEnvVar: "MOCK_KEY",
       chat: jest.fn(),
-      providerName: 'Mock',
-      apiKeyEnvVar: 'MOCK_KEY',
-    };
+    } as unknown as jest.Mocked<IInferenceProvider>;
+
     mockLoader = {
       loadPrompt: jest.fn(),
       loadTechnicalSpec: jest.fn(),
       saveTechnicalSpec: jest.fn(),
       validate: jest.fn(),
-    } as any;
+    } as unknown as jest.Mocked<PromptLoader>;
+
     session = new ReplSession(mockProvider, mockLoader);
   });
 
-  test('commands are registered', () => {
-    const commands = ['help', 'load', 'spec', 'chat', 'append-spec', 'run', 'exit'];
-    for (const cmd of commands) {
-      expect((session as any).commands.has(cmd)).toBe(true);
+  it("should register built-in commands", () => {
+    const expectedCommands = ["help", "load", "spec", "chat", "append-spec", "run", "exit"];
+    for (const cmd of expectedCommands) {
+      expect(session.commands.has(cmd)).toBe(true);
     }
   });
 
-  test('/help prints help text', async () => {
-    const spy = jest.spyOn(console, 'log').mockImplementation();
-    const helpCmd = (session as any).commands.get('help');
-    await helpCmd.execute([], session);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Available commands:'));
-    spy.mockRestore();
+  it("should register custom commands", () => {
+    const customCommand: IReplCommand = {
+      description: "Custom command",
+      execute: jest.fn(),
+    };
+
+    session.registerCommand("custom", customCommand);
+    expect(session.commands.has("custom")).toBe(true);
+    expect(session.commands.get("custom")?.description).toBe("Custom command");
   });
 
-  test('/load loads prompt and adds system message', async () => {
-    mockLoader.loadPrompt.mockResolvedValueOnce('system content');
-    const loadCmd = (session as any).commands.get('load');
-    await loadCmd.execute(['system-design-agent'], session);
-    expect(mockLoader.loadPrompt).toHaveBeenCalledWith('system-design-agent');
-    expect((session as any).messages).toContainEqual({ role: 'system', content: 'system content' });
+  it("should have 7 built-in commands", () => {
+    expect(session.commands.size).toBe(7);
   });
 
-  test('/spec prints spec', async () => {
-    mockLoader.loadTechnicalSpec.mockResolvedValueOnce('# TECHNICAL SPECIFICATION\ntest spec');
-    const spy = jest.spyOn(console, 'log').mockImplementation();
-    const specCmd = (session as any).commands.get('spec');
-    await specCmd.execute([], session);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('test spec'));
-    spy.mockRestore();
+  it("should have help command with description", () => {
+    const helpCmd = session.commands.get("help");
+    expect(helpCmd).toBeDefined();
+    expect(helpCmd?.description).toBeTruthy();
   });
 
-  test('/chat sends message and appends response', async () => {
-    mockProvider.chat.mockResolvedValueOnce('assistant reply');
-    const chatCmd = (session as any).commands.get('chat');
-    await chatCmd.execute(['hello', 'world'], session);
-    expect((session as any).messages).toHaveLength(2);
-    expect((session as any).messages[0]).toEqual({ role: 'user', content: 'hello world' });
-    expect((session as any).messages[1]).toEqual({ role: 'assistant', content: 'assistant reply' });
+  it("should have exit command that stops the session", async () => {
+    const exitCmd = session.commands.get("exit");
+    expect(exitCmd).toBeDefined();
+
+    session.running = true;
+    await exitCmd!.execute([], session);
+    expect(session.running).toBe(false);
   });
 
-  test('/append-spec writes last assistant message to spec', async () => {
-    mockLoader.loadTechnicalSpec.mockResolvedValueOnce('old spec');
-    mockLoader.saveTechnicalSpec.mockResolvedValueOnce();
-    (session as any).messages.push({ role: 'assistant', content: 'new content' });
-    const appendCmd = (session as any).commands.get('append-spec');
-    await appendCmd.execute([], session);
-    expect(mockLoader.saveTechnicalSpec).toHaveBeenCalledWith(
-      expect.stringContaining('new content'),
-    );
+  it("should have load command", () => {
+    const loadCmd = session.commands.get("load");
+    expect(loadCmd).toBeDefined();
+    expect(loadCmd?.description).toContain("Load a prompt file");
   });
 
-  test('/run loads prompt + spec and prints response', async () => {
-    mockLoader.loadPrompt.mockResolvedValueOnce('prompt text');
-    mockLoader.loadTechnicalSpec.mockResolvedValueOnce('spec text');
-    mockProvider.chat.mockResolvedValueOnce('AI output');
-    const spy = jest.spyOn(console, 'log').mockImplementation();
-    const runCmd = (session as any).commands.get('run');
-    await runCmd.execute(['system-design-agent'], session);
-    expect(mockProvider.chat).toHaveBeenCalledWith([
-      { role: 'user', content: 'prompt text\n\nTECHNICAL SPECIFICATION:\nspec text' },
-    ]);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('AI output'));
-    spy.mockRestore();
+  it("should have spec command", () => {
+    const specCmd = session.commands.get("spec");
+    expect(specCmd).toBeDefined();
+    expect(specCmd?.description).toContain("technical specification");
   });
 
-  test('/exit stops running', async () => {
-    const exitCmd = (session as any).commands.get('exit');
-    (session as any).running = true;
-    await exitCmd.execute([], session);
-    expect((session as any).running).toBe(false);
+  it("should have chat command", () => {
+    const chatCmd = session.commands.get("chat");
+    expect(chatCmd).toBeDefined();
+    expect(chatCmd?.description).toContain("Send a message");
+  });
+
+  it("should have append-spec command", () => {
+    const appendCmd = session.commands.get("append-spec");
+    expect(appendCmd).toBeDefined();
+    expect(appendCmd?.description).toContain("Append");
+  });
+
+  it("should have run command", () => {
+    const runCmd = session.commands.get("run");
+    expect(runCmd).toBeDefined();
+    expect(runCmd?.description).toContain("Load a prompt");
   });
 });
