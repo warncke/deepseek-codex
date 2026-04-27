@@ -1,9 +1,9 @@
 # TECHNICAL SPECIFICATION
 
-## Prompt Workflow CLI — Interactive AI-Assisted System Design Agent
+## Deepseek Codex CLI — Interactive AI-Assisted System Design Agent
 
 **Version 1.0**  
-**Target platform:** Node.js (≥ 18), invoked via `npx`  
+**Target platform:** Node.js (≥ 24.15.0 LTS), invoked via `npx`  
 **Languages:** TypeScript (implementation), portable design for C/Rust wrappers via subprocess  
 **License:** MIT
 
@@ -11,9 +11,9 @@
 
 ## 1. Overview
 
-The Prompt Workflow CLI (`prompt-workflow`) is an interactive command‑line tool that implements the **Prompting Work Flow** for AI‑assisted system design. It provides a REPL that loads prompt templates and technical specifications from a local `prompts/` directory, communicates with an inference platform API (defaulting to DeepSeek V4), and guides the user through the iterative workflow: **revise technical paper → generate technical specification → apply → repeat**.
+The Deepseek Codex CLI (`deepseek-codex`) is an interactive command‑line tool that implements the **Prompting Work Flow** for AI‑assisted system design. It provides a REPL that loads prompt templates and technical specifications from a local `prompts/` directory, communicates with an inference platform API (defaulting to DeepSeek V4), and guides the user through the iterative workflow: **revise technical paper → generate technical specification → apply → repeat**.
 
-The tool is designed to be invoked directly via `npx prompt-workflow` with zero installation beyond Node.js. It uses an extensible provider model so that any OpenAI‑compatible API can be substituted, while shipping with a DeepSeek‑first default.
+The tool is designed to be invoked directly via `npx deepseek-codex` with zero installation beyond Node.js. It uses an extensible provider model so that any OpenAI‑compatible API can be substituted, while shipping with a DeepSeek‑first default.
 
 ---
 
@@ -282,10 +282,10 @@ class AppConfig {
 
 ---
 
-## 4. `PromptWorkflowApp` — Orchestrator
+## 4. `DeepseekCodexApp` — Orchestrator
 
 ```typescript
-class PromptWorkflowApp {
+class DeepseekCodexApp {
   private config: AppConfig;
   private provider: IInferenceProvider;
   private loader: PromptLoader;
@@ -321,7 +321,7 @@ class PromptWorkflowApp {
 8. Print banner:
 
 ```
-Prompt Workflow CLI v1.0
+Deepseek Codex CLI v1.0
 Provider:  DeepSeek V4
 Model:     deepseek-v4-pro
 Prompts:   ./prompts/
@@ -349,24 +349,27 @@ Type /help for commands.
 
 - Use `node:readline` for the REPL.
 - Use `node:fs/promises` for file I/O.
-- Use `fetch` (Node 18+ built‑in) for HTTP requests.
-- Package entry point: `bin/prompt-workflow.mjs` (ESM), with `#!/usr/bin/env node` shebang.
+- Use `fetch` (globally available, stable since Node 18) for HTTP requests.
+- Package entry point: `bin/deepseek-codex.mjs` (ESM), with `#!/usr/bin/env node` shebang.
 - `package.json`:
   ```json
   {
-    "name": "prompt-workflow",
+    "name": "deepseek-codex",
     "version": "1.0.0",
     "type": "module",
     "bin": {
-      "prompt-workflow": "./bin/prompt-workflow.mjs"
+      "deepseek-codex": "./bin/deepseek-codex.mjs"
     },
-    "files": ["bin/", "lib/"]
+    "files": ["bin/", "lib/"],
+    "engines": {
+      "node": ">=24.15.0"
+    }
   }
   ```
 
 ### 6.2 Rust Wrapper (Future)
 
-A Rust binary can shell out to `prompt-workflow` via `std::process::Command`, passing `--prompts-dir` and `--api-key`. The REPL runs in the terminal; the Rust wrapper simply manages environment setup and argument forwarding.
+A Rust binary can shell out to `deepseek-codex` via `std::process::Command`, passing `--prompts-dir` and `--api-key`. The REPL runs in the terminal; the Rust wrapper simply manages environment setup and argument forwarding.
 
 ### 6.3 C Wrapper (Future)
 
@@ -379,7 +382,7 @@ Identical approach: `popen()` or `system()` to invoke the Node.js binary. The C 
 To add a new provider (e.g., OpenAI, Anthropic, local Ollama):
 
 1. Implement `IInferenceProvider`.
-2. Register the provider in a registry map inside `PromptWorkflowApp.initialize()`:
+2. Register the provider in a registry map inside `DeepseekCodexApp.initialize()`:
 
 ```typescript
 const providers: Record<string, () => IInferenceProvider> = {
@@ -396,6 +399,7 @@ The `DeepSeekProvider` is the reference implementation and the only one shipped 
 ## 8. Error Handling
 
 - **Missing API key**: Print `Error: DEEPSEEK_API_KEY environment variable is not set.` and exit with code 1.
+- **Unsupported Node version**: If `process.version` is older than v24.15.0 LTS, print a warning: `Warning: Node.js ≥ 24.15.0 LTS is recommended (current: v…)` and continue (do not exit). The tool may function but is untested on older releases.
 - **Missing prompts directory**: Print a list of missing files and exit with code 1.
 - **API errors**: Print the status code, error message, and any retry advice. Exit the REPL command, but do not exit the REPL.
 - **Invalid `TECHNICAL SPECIFICATION:` format**: Print a warning but proceed; the `/run` command will still append whatever is in the file.
@@ -405,9 +409,9 @@ The `DeepSeekProvider` is the reference implementation and the only one shipped 
 ## 9. Example Session
 
 ```
-$ npx prompt-workflow
+$ npx deepseek-codex
 
-Prompt Workflow CLI v1.0
+Deepseek Codex CLI v1.0
 Provider:  DeepSeek V4
 Model:     deepseek-v4-pro
 Prompts:   ./prompts/
@@ -432,11 +436,3 @@ Appended last response to prompts/technical-specification.md.
 > /exit
 Goodbye.
 ```
-
----
-
-## End of Specification
-
----
-
-**Summary:** This specification defines a portable, provider‑extensible CLI tool that implements the Prompting Work Flow using a simple class model (no inheritance, TypeScript‑first, trivial C/Rust wrapping via subprocess). The DeepSeek V4 provider is the default and only provider shipped in v1.0. The design is intentionally minimal: load prompts, chat with an LLM, and save the resulting technical specification — all within an interactive REPL that can be invoked with `npx`.
