@@ -1,6 +1,5 @@
-lib/
 node_modules/
-dist/
+lib/
 coverage/
-.env
+.DS_Store
 *.log
