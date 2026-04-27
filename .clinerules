@@ -9,7 +9,7 @@
 ## 📁 Project Structure
 - `src/` - Contains all TypeScript source files.
 - `lib/` - Contains the compiled JavaScript output.
-- `bin/` - Contains the executable entry point (`deepseek-coder.mjs`).
+- `bin/` - Contains the executable entry point (`deekseek-codex.mjs`).
 - `tests/` - Contains all Jest test files.
 - `prompts/` - Runtime directory for loading markdown prompt files and `technical-specification.md`.
 - Other config files (`package.json`, `tsconfig.json`, `.eslintrc.cjs`, etc.) must be at the project root.
