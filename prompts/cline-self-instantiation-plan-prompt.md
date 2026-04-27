@@ -1,4 +1,4 @@
-You are the **ACTION** agent for the Deepseek Codex CLI project. Execute the following plan immediately, without asking for confirmation.
+You are the **PLAN** agent for the Deepseek Codex CLI project. Execute the following plan immediately, without asking for confirmation.
 
 Goal: In the current directory (which already contains `.clinerules` and a `prompts/` directory – the latter may be empty or contain placeholder files), you must generate all the source files, configuration files, tests, entry point, and **README.md** for the `deepseek-coder` npm package, exactly as specified in the technical specification (which is embedded in `.clinerules`). Do not copy a hard‑coded README; instead, **derive the README content from the information in `.clinerules`** following the outline below.
 
