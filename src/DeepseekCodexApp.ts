@@ -1,8 +1,8 @@
-import { AppConfig } from "./AppConfig.js";
-import { DeepSeekProvider } from "./DeepSeekProvider.js";
-import { PromptLoader } from "./PromptLoader.js";
-import { ReplSession } from "./ReplSession.js";
-import type { IInferenceProvider } from "./interfaces.js";
+import { AppConfig } from './AppConfig.js';
+import { DeepSeekProvider } from './DeepSeekProvider.js';
+import { PromptLoader } from './PromptLoader.js';
+import { ReplSession } from './ReplSession.js';
+import type { IInferenceProvider } from './interfaces.js';
 
 export class DeepseekCodexApp {
   private config: AppConfig;
@@ -49,7 +49,7 @@ export class DeepseekCodexApp {
 
     const validation = await this.loader.validate();
     if (!validation.valid) {
-      console.error("Missing required prompt files:");
+      console.error('Missing required prompt files:');
       for (const file of validation.missing) {
         console.error(`  - ${file}`);
       }
@@ -60,15 +60,15 @@ export class DeepseekCodexApp {
   }
 
   async run(): Promise<void> {
-    const modelName = this.config.model || "deepseek-v4-pro";
+    const modelName = this.config.model || 'deepseek-v4-pro';
 
-    console.log("Deepseek Codex CLI v1.0");
+    console.log('Deepseek Codex CLI v1.0');
     console.log(`Provider:  ${this.provider.providerName}`);
     console.log(`Model:     ${modelName}`);
     console.log(`Prompts:   ${this.config.promptsDir}/`);
     console.log(`Spec:      ${this.config.promptsDir}/technical-specification.md`);
     console.log();
-    console.log("Type /help for commands.");
+    console.log('Type /help for commands.');
     console.log();
 
     await this.session.start();

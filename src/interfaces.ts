@@ -1,7 +1,7 @@
-import type { ReplSession } from "./ReplSession.js";
+import type { ReplSession } from './ReplSession.js';
 
 export interface ChatMessage {
-  role: "system" | "user" | "assistant";
+  role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
@@ -9,8 +9,8 @@ export interface ChatOptions {
   model?: string;
   temperature?: number;
   maxTokens?: number;
-  thinking?: { type: "enabled" | "disabled" };
-  reasoningEffort?: "high" | "max";
+  thinking?: { type: 'enabled' | 'disabled' };
+  reasoningEffort?: 'high' | 'max';
   stream?: boolean;
 }
 

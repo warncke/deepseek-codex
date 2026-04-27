@@ -1,12 +1,12 @@
-import type { ChatMessage, ChatOptions, IInferenceProvider } from "./interfaces.js";
+import type { ChatMessage, ChatOptions, IInferenceProvider } from './interfaces.js';
 
 export class DeepSeekProvider implements IInferenceProvider {
-  readonly providerName = "DeepSeek V4";
-  readonly apiKeyEnvVar = "DEEPSEEK_API_KEY";
+  readonly providerName = 'DeepSeek V4';
+  readonly apiKeyEnvVar = 'DEEPSEEK_API_KEY';
 
-  private baseUrl = "https://api.deepseek.com";
+  private baseUrl = 'https://api.deepseek.com';
   private apiKey: string;
-  private defaultModel = "deepseek-v4-pro";
+  private defaultModel = 'deepseek-v4-pro';
 
   constructor() {
     const key = process.env[this.apiKeyEnvVar];
@@ -49,9 +49,9 @@ export class DeepSeekProvider implements IInferenceProvider {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const response = await fetch(url, {
-          method: "POST",
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
             Authorization: `Bearer ${this.apiKey}`,
           },
           body: JSON.stringify(body),
@@ -86,19 +86,19 @@ export class DeepSeekProvider implements IInferenceProvider {
         return data.choices[0].message.content;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
-        if (err instanceof Error && err.message.startsWith("Authentication failed")) {
+        if (err instanceof Error && err.message.startsWith('Authentication failed')) {
           throw err;
         }
         if (
           err instanceof Error &&
-          err.message.startsWith("Rate limited") &&
+          err.message.startsWith('Rate limited') &&
           attempt >= maxAttempts - 1
         ) {
           throw err;
         }
         if (
           err instanceof Error &&
-          err.message.startsWith("Server error") &&
+          err.message.startsWith('Server error') &&
           attempt >= maxAttempts - 1
         ) {
           throw err;
@@ -110,6 +110,6 @@ export class DeepSeekProvider implements IInferenceProvider {
       }
     }
 
-    throw lastError || new Error("Unknown error occurred");
+    throw lastError || new Error('Unknown error occurred');
   }
 }

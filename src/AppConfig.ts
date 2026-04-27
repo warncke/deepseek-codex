@@ -8,27 +8,27 @@ export class AppConfig {
   constructor(argv: string[]) {
     const args = argv.slice(2);
 
-    let promptsDir = "./prompts";
-    let provider = "deepseek";
+    let promptsDir = './prompts';
+    let provider = 'deepseek';
     let baseUrl: string | undefined;
     let model: string | undefined;
     let apiKey: string | undefined;
 
     for (let i = 0; i < args.length; i++) {
       switch (args[i]) {
-        case "--prompts-dir":
+        case '--prompts-dir':
           promptsDir = args[++i] || promptsDir;
           break;
-        case "--provider":
+        case '--provider':
           provider = args[++i] || provider;
           break;
-        case "--base-url":
+        case '--base-url':
           baseUrl = args[++i];
           break;
-        case "--model":
+        case '--model':
           model = args[++i];
           break;
-        case "--api-key":
+        case '--api-key':
           apiKey = args[++i];
           break;
       }

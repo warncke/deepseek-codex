@@ -1,23 +1,23 @@
-import { readFile, writeFile, access } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, writeFile, access } from 'node:fs/promises';
+import { join } from 'node:path';
 
 export class PromptLoader {
   private promptsDir: string;
 
-  constructor(promptsDir = "./prompts") {
+  constructor(promptsDir = './prompts') {
     this.promptsDir = promptsDir;
   }
 
   async loadPrompt(name: string): Promise<string> {
     const filePath = join(this.promptsDir, `${name}.md`);
-    const content = await readFile(filePath, "utf-8");
+    const content = await readFile(filePath, 'utf-8');
     return content;
   }
 
   async loadTechnicalSpec(): Promise<string> {
-    const filePath = join(this.promptsDir, "technical-specification.md");
-    const content = await readFile(filePath, "utf-8");
-    if (!content.startsWith("# TECHNICAL SPECIFICATION")) {
+    const filePath = join(this.promptsDir, 'technical-specification.md');
+    const content = await readFile(filePath, 'utf-8');
+    if (!content.startsWith('# TECHNICAL SPECIFICATION')) {
       throw new Error(
         "Invalid technical specification: file must start with '# TECHNICAL SPECIFICATION'",
       );
@@ -26,15 +26,15 @@ export class PromptLoader {
   }
 
   async saveTechnicalSpec(content: string): Promise<void> {
-    const filePath = join(this.promptsDir, "technical-specification.md");
-    await writeFile(filePath, content, "utf-8");
+    const filePath = join(this.promptsDir, 'technical-specification.md');
+    await writeFile(filePath, content, 'utf-8');
   }
 
   async validate(): Promise<{ valid: boolean; missing: string[] }> {
     const requiredFiles = [
-      "system-design-agent.md",
-      "npm-project-creation-prompt.md",
-      "technical-specification.md",
+      'system-design-agent.md',
+      'npm-project-creation-prompt.md',
+      'technical-specification.md',
     ];
 
     const missing: string[] = [];
