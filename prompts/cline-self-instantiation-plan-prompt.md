@@ -11,9 +11,9 @@ Goal: In the current directory (which already contains `.clinerules` and a `prom
   3. **Prerequisites** – Node.js version, npm, DeepSeek API key.
   4. **Development Workflow** – commands: `npm install`, `npm run build`, `npm test`, `npm run lint`, `npm run format`, `npm run prepare`.
   5. **Project Structure** – a tree diagram showing `bin/`, `src/`, `tests/`, `prompts/`, `lib/`, config files.
-  6. **Testing Guidelines** – derived from the spec's testing requirements (mocking, no live API, etc.). Note that `SpecTreeView` tests should test `parseMarkdownHeadings`, `flattenTree`, and `renderTree` as pure functions, and should NOT test `showInteractiveSpec` (which requires raw mode stdin).
+  6. **Testing Guidelines** – derived from the spec’s testing requirements (mocking, no live API, etc.).
   7. **Configuration** – table of CLI arguments and environment variables (from AppConfig and spec).
-  8. **REPL Commands** – table of built‑in commands with descriptions (from spec section 3.6). The `/spec` command's interactive viewer has its own keyboard shortcuts (↑↓ navigate, → expand body/children, ← collapse, q quit) that should be documented.
+  8. **REPL Commands** – table of built‑in commands with descriptions (from spec section 3.6).
   9. **Adding a New Inference Provider** – brief steps referencing spec section 7.
   10. **Contributing** – rules: stick to spec, zero external deps, ESM, lint/test before commit.
   11. **License** – MIT.
@@ -29,7 +29,7 @@ Goal: In the current directory (which already contains `.clinerules` and a `prom
 3. **DO NOT modify `.clinerules`** – it stays as is.
 4. Create **exactly** the following files using the exact content from the previous session (except README.md, which you will generate):
    - `package.json`
-   - `tsconfig.json` (include `"types": ["node"]` in compilerOptions)
+   - `tsconfig.json`
    - `.eslintrc.cjs`
    - `.prettierrc`
    - `.gitignore`
@@ -39,11 +39,10 @@ Goal: In the current directory (which already contains `.clinerules` and a `prom
    - `src/PromptLoader.ts`
    - `src/AppConfig.ts`
    - `src/ReplSession.ts`
-   - `src/SpecTreeView.ts`
    - `src/DeepseekCodexApp.ts`
    - `src/index.ts`
-   - `bin/deepseek-codex.mjs` (make executable)
-   - `tests/deepseek-codex.test.ts`
+   - `bin/deepseek-coder.mjs` (make executable)
+   - `tests/deepseek-coder.test.ts`
 
 5. After writing all files, run:
    ```bash
@@ -51,13 +50,3 @@ Goal: In the current directory (which already contains `.clinerules` and a `prom
    npm run build
    npm test
    ```
-
-**ACT MODE workflow for all feature changes:**
-
-1. **Consult the SYSTEM SPECIFICATION** — Before planning any change, read the technical specification in `.clinerules` to understand the existing contract and ensure the change is consistent with it.
-2. **Plan from observable behavior** — Describe the change in terms of what a user can see or do differently (e.g., "pressing → on a heading with body text shows the body inline" rather than "add a showBody field to SpecNode").
-3. **Write tests first** — Before modifying any source code, write the tests that will validate the new behavior. The tests should fail initially.
-4. **Run the new tests** — Verify they fail (red).
-5. **Implement the change** — Modify source code according to the plan.
-6. **Run all tests** — Verify all tests pass (green), including existing ones.
-7. **Verify TypeScript compilation** — Run `npx tsc` to ensure no type errors.

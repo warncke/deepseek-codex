@@ -1,66 +1,64 @@
-You are the **PLAN** agent for the Deepseek Codex CLI project. Execute the following plan immediately, without asking for confirmation.
+# DeepSeek Codex CLI – Development Rules
 
-Goal: In the current directory (which already contains `.clinerules` and a `prompts/` directory – the latter may be empty or contain placeholder files), you must generate all the source files, configuration files, tests, entry point, and **README.md** for the `deepseek-coder` npm package, exactly as specified in the technical specification (which is embedded in `.clinerules`). Do not copy a hard‑coded README; instead, **derive the README content from the information in `.clinerules`** following the outline below.
+## Core Mandates
 
-**Strict rules for README.md generation:**
+- Follow the **TECHNICAL SPECIFICATION** appended below exactly. No extra features.
+- Use only Node.js built‑ins: `node:readline`, `node:fs/promises`, `node:path`, `fetch`.
+- Keep ESM (`"type": "module"`, `"module": "ES2022"`, `"target": "ES2022"`).
+- Target **Node.js 24 LTS** (the latest LTS version). Do not use APIs that are unavailable in Node.js 24. (Porting to older platforms is a separate, future concern.)
 
-- You MUST produce a `README.md` file that is **developer‑focused**, not just a user manual.
-- Use the following **required sections** in this order:
-  1. **Title & one‑line description** (from the spec Overview).
-  2. **Quick Start** – clone, install, build, set API key, run.
-  3. **Prerequisites** – Node.js version, npm, DeepSeek API key.
-  4. **Development Workflow** – commands: `npm install`, `npm run build`, `npm test`, `npm run lint`, `npm run format`, `npm run prepare`.
-  5. **Project Structure** – a tree diagram showing `bin/`, `src/`, `tests/`, `prompts/`, `lib/`, config files.
-  6. **Testing Guidelines** – derived from the spec's testing requirements (mocking, no live API, etc.). Note that `SpecTreeView` tests should test `parseMarkdownHeadings`, `flattenTree`, and `renderTree` as pure functions, and should NOT test `showInteractiveSpec` (which requires raw mode stdin).
-  7. **Configuration** – table of CLI arguments and environment variables (from AppConfig and spec).
-  8. **REPL Commands** – table of built‑in commands with descriptions (from spec section 3.6). The `/spec` command's interactive viewer has its own keyboard shortcuts (↑↓ navigate, → expand body/children, ← collapse, q quit) that should be documented.
-  9. **Adding a New Inference Provider** – brief steps referencing spec section 7.
-  10. **Contributing** – rules: stick to spec, zero external deps, ESM, lint/test before commit.
-  11. **License** – MIT.
+## Directories & Files
 
-- You MUST **not** copy any hard‑coded README text from this prompt. Instead, extract the actual values (e.g., default model name, provider name, commands, options) from the technical specification inside `.clinerules`.
-- The README must be valid Markdown, with code blocks where appropriate.
-- Do not include any placeholder text like `[TODO]` – fill everything from the spec.
+- `src/` – TypeScript sources.
+- `lib/` – compiled output (ignored).
+- `tests/` – Jest tests.
+- `bin/` – executable (`deepseek-codex.mjs`).
+- `prompts/` – **user‑managed** – do not create, modify, or delete anything inside unless the user explicitly asks.
+- Do not modify `.clinerules` unless requested.
 
-**Other strict rules for all files:**
+## README.md Generation
 
-1. **DO NOT create, modify, or delete any files inside the `prompts/` directory.** If it doesn't exist, create it empty.
-2. **DO NOT read or write `technical-specification.md` or any prompt files during bootstrap.** The tests use mocks.
-3. **DO NOT modify `.clinerules`** – it stays as is.
-4. Create **exactly** the following files using the exact content from the previous session (except README.md, which you will generate):
-   - `package.json`
-   - `tsconfig.json` (include `"types": ["node"]` in compilerOptions)
-   - `.eslintrc.cjs`
-   - `.prettierrc`
-   - `.gitignore`
-   - `.prettierignore`
-   - `src/interfaces.ts`
-   - `src/DeepSeekProvider.ts`
-   - `src/PromptLoader.ts`
-   - `src/AppConfig.ts`
-   - `src/ReplSession.ts`
-   - `src/SpecTreeView.ts`
-   - `src/DeepseekCodexApp.ts`
-   - `src/index.ts`
-   - `bin/deepseek-codex.mjs` (make executable)
-   - `tests/deepseek-codex.test.ts`
+When asked to create or update `README.md`, **derive it from the TECHNICAL SPECIFICATION**. Use these required sections:
 
-5. After writing all files, run:
-   ```bash
-   npm install
-   npm run build
-   npm test
-   ```
+1. Title & one‑line description
+2. Quick Start (clone, install, build, set API key, run)
+3. Prerequisites (Node.js 24 LTS, npm, API key)
+4. Development Workflow (`npm install`, `build`, `test`, `lint`, `format`, `prepare`)
+5. Project Structure (ASCII tree)
+6. Testing Guidelines (mock `fs`, mock `fetch`, no live API)
+7. Configuration (CLI arguments + env vars table)
+8. REPL Commands (including interactive `/spec` shortcuts if present)
+9. Adding a New Provider (steps)
+10. Contributing (stick to spec, zero deps, ESM, lint/test)
+11. MIT License
 
-**ACT MODE workflow for all feature changes:**
+Never hard‑code content – extract actual values (model names, command options, default paths) from the spec.
 
-1. **Consult the SYSTEM SPECIFICATION** — Before planning any change, read the technical specification in `.clinerules` to understand the existing contract and ensure the change is consistent with it.
-2. **Plan from observable behavior** — Describe the change in terms of what a user can see or do differently (e.g., "pressing → on a heading with body text shows the body inline" rather than "add a showBody field to SpecNode").
-3. **Write tests first** — Before modifying any source code, write the tests that will validate the new behavior. The tests should fail initially.
-4. **Run the new tests** — Verify they fail (red).
-5. **Implement the change** — Modify source code according to the plan.
-6. **Run all tests** — Verify all tests pass (green), including existing ones.
-7. **Verify TypeScript compilation** — Run `npx tsc` to ensure no type errors.
+## Development Workflow (TDD)
+
+For any code change:
+
+1. **Read the spec** – understand the desired behaviour.
+2. **Write tests** that define the change (fail first).
+3. **Run tests** – confirm they fail.
+4. **Implement** the minimal code to make tests pass.
+5. **Run all tests** – ensure no regressions.
+6. **Run TypeScript** – `npx tsc` must succeed.
+7. **Refactor** as needed, keeping tests green.
+8. **Do not modify `prompts/`** – tests must mock file I/O.
+
+## Testing Rules
+
+- Mock `fs/promises` for `PromptLoader`.
+- Mock `global.fetch` for `DeepSeekProvider` (test 200, 401, 429, retries).
+- For interactive terminal features (e.g., tree viewer), test only pure parsing/rendering functions. Do not test raw I/O.
+- No tests that call a live API.
+
+## Quality Gates
+
+- `npm run lint` must pass.
+- `npm run format` must be applied.
+- `tsc --noEmit` must succeed.
 
 # TECHNICAL SPECIFICATION
 
@@ -113,7 +111,7 @@ interface IInferenceProvider {
 }
 
 interface ChatMessage {
-  role: "system" | "user" | "assistant";
+  role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
@@ -121,8 +119,8 @@ interface ChatOptions {
   model?: string;
   temperature?: number;
   maxTokens?: number;
-  thinking?: { type: "enabled" | "disabled" };
-  reasoningEffort?: "high" | "max";
+  thinking?: { type: 'enabled' | 'disabled' };
+  reasoningEffort?: 'high' | 'max';
   stream?: boolean;
 }
 ```
@@ -145,8 +143,8 @@ interface ChatOptions {
 
 ```typescript
 class DeepSeekProvider implements IInferenceProvider {
-  readonly providerName = "DeepSeek V4";
-  readonly apiKeyEnvVar = "DEEPSEEK_API_KEY";
+  readonly providerName = 'DeepSeek V4';
+  readonly apiKeyEnvVar = 'DEEPSEEK_API_KEY';
 
   constructor();
   // Reads apiKey from process.env.DEEPSEEK_API_KEY.
@@ -500,4 +498,7 @@ Appended last response to prompts/technical-specification.md.
 > /exit
 Goodbye.
 ```
+
+```
+
 ```
