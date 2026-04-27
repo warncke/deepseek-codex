@@ -1,3 +1,5 @@
+TECHNICAL SPECIFICATION:
+
 # TECHNICAL SPECIFICATION
 
 ## Deepseek Codex CLI — Interactive AI-Assisted System Design Agent
