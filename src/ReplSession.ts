@@ -1,143 +1,20 @@
-import readline from 'node:readline';
-import { IInferenceProvider, IReplCommand, ChatMessage } from './interfaces.js';
-import { PromptLoader } from './PromptLoader.js';
+import * as readline from "node:readline";
+import type { ChatMessage, IInferenceProvider, IReplCommand } from "./interfaces.js";
+import type { PromptLoader } from "./PromptLoader.js";
 
 export class ReplSession {
-  private provider: IInferenceProvider;
-  private loader: PromptLoader;
-  private messages: ChatMessage[] = [];
-  private running = false;
-  private commands: Map<string, IReplCommand> = new Map();
-  private rl?: readline.Interface;
+  readonly provider: IInferenceProvider;
+  readonly loader: PromptLoader;
+  readonly messages: ChatMessage[] = [];
+  readonly commands: Map<string, IReplCommand> = new Map();
+  running = false;
+
+  private rl: readline.Interface | null = null;
 
   constructor(provider: IInferenceProvider, loader: PromptLoader) {
     this.provider = provider;
     this.loader = loader;
     this.registerBuiltinCommands();
-  }
-
-  private registerBuiltinCommands(): void {
-    const add = (
-      name: string,
-      description: string,
-      exec: (args: string[], session: ReplSession) => Promise<void>,
-    ) => {
-      this.commands.set(name, { description, execute: exec });
-    };
-
-    add('help', 'Show this help message', async (_, session) => {
-      console.log('\nAvailable commands:');
-      for (const [name, cmd] of session.commands.entries()) {
-        console.log(`  /${name} - ${cmd.description}`);
-      }
-      console.log();
-    });
-
-    add(
-      'load',
-      'Load prompt file as system message: /load [name] (names: system-design-agent, npm-project-creation-prompt)',
-      async (args, session) => {
-        let name = args[0];
-        if (!name) {
-          await session.commands.get('load')!.execute(['system-design-agent'], session);
-          await session.commands.get('load')!.execute(['npm-project-creation-prompt'], session);
-          return;
-        }
-        if (!['system-design-agent', 'npm-project-creation-prompt'].includes(name)) {
-          console.error(
-            `Unknown prompt name: ${name}. Use system-design-agent or npm-project-creation-prompt.`,
-          );
-          return;
-        }
-        try {
-          const content = await session.loader.loadPrompt(name);
-          session.messages.push({ role: 'system', content });
-          console.log(`Loaded prompts/${name}.md (${content.length} bytes)`);
-        } catch (err) {
-          console.error(`Error loading prompt: ${(err as Error).message}`);
-        }
-      },
-    );
-
-    add('spec', 'Print current technical specification', async (_, session) => {
-      try {
-        const spec = await session.loader.loadTechnicalSpec();
-        console.log('\n--- TECHNICAL SPECIFICATION ---\n');
-        console.log(spec);
-        console.log('\n--------------------------------\n');
-      } catch (err) {
-        console.error(`Error reading spec: ${(err as Error).message}`);
-      }
-    });
-
-    add('chat', 'Send a message to the AI: /chat <message>', async (args, session) => {
-      const userMsg = args.join(' ');
-      if (!userMsg) {
-        console.error('Usage: /chat <message>');
-        return;
-      }
-      session.messages.push({ role: 'user', content: userMsg });
-      try {
-        console.log('Sending to provider...');
-        const response = await session.provider.chat(session.messages);
-        session.messages.push({ role: 'assistant', content: response });
-        console.log(`\n${response}\n`);
-      } catch (err) {
-        console.error(`Chat error: ${(err as Error).message}`);
-        session.messages.pop();
-      }
-    });
-
-    add(
-      'append-spec',
-      'Append the last assistant response to technical-specification.md',
-      async (_, session) => {
-        const last = session.messages
-          .slice()
-          .reverse()
-          .find((m) => m.role === 'assistant');
-        if (!last) {
-          console.error('No assistant response found to append.');
-          return;
-        }
-        try {
-          const currentSpec = await session.loader.loadTechnicalSpec();
-          const newSpec = currentSpec + '\n\n' + last.content;
-          await session.loader.saveTechnicalSpec(newSpec);
-          console.log('Appended last response to technical-specification.md');
-        } catch (err) {
-          console.error(`Failed to append spec: ${(err as Error).message}`);
-        }
-      },
-    );
-
-    add(
-      'run',
-      'Load prompt, append current spec, send to AI: /run <prompt-name>',
-      async (args, session) => {
-        const name = args[0];
-        if (!name || !['system-design-agent', 'npm-project-creation-prompt'].includes(name)) {
-          console.error('Usage: /run <system-design-agent|npm-project-creation-prompt>');
-          return;
-        }
-        try {
-          const promptContent = await session.loader.loadPrompt(name);
-          const spec = await session.loader.loadTechnicalSpec();
-          const fullPrompt = `${promptContent}\n\nTECHNICAL SPECIFICATION:\n${spec}`;
-          const response = await session.provider.chat([{ role: 'user', content: fullPrompt }]);
-          console.log('\n--- RESPONSE ---\n');
-          console.log(response);
-          console.log('\n----------------\n');
-        } catch (err) {
-          console.error(`Run error: ${(err as Error).message}`);
-        }
-      },
-    );
-
-    add('exit', 'Exit the REPL', async (_, session) => {
-      session.running = false;
-      if (session.rl) session.rl.close();
-    });
   }
 
   registerCommand(name: string, command: IReplCommand): void {
@@ -149,34 +26,180 @@ export class ReplSession {
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: '> ',
+      prompt: "> ",
     });
 
     this.rl.prompt();
 
     for await (const line of this.rl) {
+      if (!this.running) break;
+
       const trimmed = line.trim();
-      if (!trimmed) {
-        this.rl.prompt();
-        continue;
-      }
-      if (trimmed.startsWith('/')) {
-        const parts = trimmed.slice(1).split(/\s+/);
-        const cmdName = parts[0].toLowerCase();
+
+      if (trimmed.startsWith("/")) {
+        const parts = trimmed.split(/\s+/);
+        const cmdName = parts[0].slice(1);
         const args = parts.slice(1);
+
         const command = this.commands.get(cmdName);
         if (command) {
-          await command.execute(args, this);
+          try {
+            await command.execute(args, this);
+          } catch (err) {
+            console.error(
+              `Error executing /${cmdName}:`,
+              err instanceof Error ? err.message : String(err),
+            );
+          }
         } else {
-          console.error(`Unknown command: /${cmdName}. Type /help for available commands.`);
+          console.log(`Unknown command: /${cmdName}. Type /help for available commands.`);
         }
-      } else {
-        console.error('Commands must start with /. Type /help');
+      } else if (trimmed.length > 0) {
+        console.log("Type /help for available commands.");
       }
-      if (!this.running) break;
-      this.rl.prompt();
-    }
 
-    if (this.rl) this.rl.close();
+      if (this.running) {
+        this.rl.prompt();
+      }
+    }
+  }
+
+  stop(): void {
+    this.running = false;
+    if (this.rl) {
+      this.rl.close();
+    }
+  }
+
+  private registerBuiltinCommands(): void {
+    this.registerCommand("help", {
+      description: "Display all available commands",
+      execute: async () => {
+        console.log("\nAvailable commands:");
+        for (const [name, cmd] of this.commands) {
+          console.log(`  /${name}  ${cmd.description}`);
+        }
+        console.log();
+      },
+    });
+
+    this.registerCommand("load", {
+      description:
+        "[name] Load a prompt file (system-design-agent, npm-project-creation-prompt). If no name, loads both.",
+      execute: async (args, session) => {
+        const names =
+          args.length > 0 ? args : ["system-design-agent", "npm-project-creation-prompt"];
+
+        for (const name of names) {
+          try {
+            const content = await session.loader.loadPrompt(name);
+            session.messages.push({ role: "system", content });
+            console.log(`Loaded prompts/${name}.md (${content.length} B)`);
+          } catch (err) {
+            console.error(
+              `Failed to load prompt '${name}':`,
+              err instanceof Error ? err.message : String(err),
+            );
+          }
+        }
+      },
+    });
+
+    this.registerCommand("spec", {
+      description: "Print the current technical specification",
+      execute: async (_args, session) => {
+        try {
+          const spec = await session.loader.loadTechnicalSpec();
+          console.log(spec);
+        } catch (err) {
+          console.error(
+            "Failed to load technical specification:",
+            err instanceof Error ? err.message : String(err),
+          );
+        }
+      },
+    });
+
+    this.registerCommand("chat", {
+      description: "<message> Send a message to the AI and get a response",
+      execute: async (args, session) => {
+        if (args.length === 0) {
+          console.log("Usage: /chat <message>");
+          return;
+        }
+
+        const message = args.join(" ");
+        session.messages.push({ role: "user", content: message });
+
+        try {
+          const response = await session.provider.chat(session.messages);
+          console.log("\n--- RESPONSE ---");
+          console.log(response);
+          console.log("------------------\n");
+          session.messages.push({ role: "assistant", content: response });
+        } catch (err) {
+          console.error("Chat error:", err instanceof Error ? err.message : String(err));
+        }
+      },
+    });
+
+    this.registerCommand("append-spec", {
+      description: "Append the last assistant response to the technical specification",
+      execute: async (_args, session) => {
+        const lastMessage = session.messages[session.messages.length - 1];
+        if (!lastMessage || lastMessage.role !== "assistant") {
+          console.log("No assistant response to append.");
+          return;
+        }
+
+        try {
+          const currentSpec = await session.loader.loadTechnicalSpec();
+          const newSpec = currentSpec + "\n\n" + lastMessage.content;
+          await session.loader.saveTechnicalSpec(newSpec);
+          console.log("Appended last response to prompts/technical-specification.md.");
+        } catch (err) {
+          console.error("Failed to append spec:", err instanceof Error ? err.message : String(err));
+        }
+      },
+    });
+
+    this.registerCommand("run", {
+      description: "<prompt-name> Load a prompt, prepend the technical spec, and send to AI",
+      execute: async (args, session) => {
+        if (args.length === 0) {
+          console.log("Usage: /run <prompt-name>");
+          return;
+        }
+
+        const promptName = args[0];
+
+        try {
+          const prompt = await session.loader.loadPrompt(promptName);
+          const spec = await session.loader.loadTechnicalSpec();
+
+          const combined = `${prompt}\n\nTECHNICAL SPECIFICATION:\n${spec}`;
+
+          console.log(`Sending to ${session.provider.providerName}...\n`);
+
+          const response = await session.provider.chat([{ role: "user", content: combined }]);
+
+          console.log("--- RESPONSE ---");
+          console.log(response);
+          console.log("------------------\n");
+
+          session.messages.push({ role: "assistant", content: response });
+        } catch (err) {
+          console.error("Run error:", err instanceof Error ? err.message : String(err));
+        }
+      },
+    });
+
+    this.registerCommand("exit", {
+      description: "Exit the REPL",
+      execute: async () => {
+        console.log("Goodbye.");
+        this.stop();
+      },
+    });
   }
 }

@@ -1,50 +1,76 @@
-import { AppConfig } from './AppConfig.js';
-import { DeepSeekProvider } from './DeepSeekProvider.js';
-import { PromptLoader } from './PromptLoader.js';
-import { ReplSession } from './ReplSession.js';
-import { IInferenceProvider } from './interfaces.js';
+import { AppConfig } from "./AppConfig.js";
+import { DeepSeekProvider } from "./DeepSeekProvider.js";
+import { PromptLoader } from "./PromptLoader.js";
+import { ReplSession } from "./ReplSession.js";
+import type { IInferenceProvider } from "./interfaces.js";
 
 export class DeepseekCodexApp {
   private config: AppConfig;
   private provider!: IInferenceProvider;
   private loader!: PromptLoader;
+  private session!: ReplSession;
 
   constructor(config: AppConfig) {
     this.config = config;
   }
 
   async initialize(): Promise<void> {
-    if (this.config.provider !== 'deepseek') {
-      throw new Error(
-        `Unsupported provider: ${this.config.provider}. Only "deepseek" is supported.`,
-      );
-    }
-    this.provider = new DeepSeekProvider();
-    if (this.config.apiKey) {
-      (this.provider as DeepSeekProvider)['apiKey'] = this.config.apiKey;
-    }
+    const providers: Record<string, () => IInferenceProvider> = {
+      deepseek: () => new DeepSeekProvider(),
+    };
 
-    this.loader = new PromptLoader(this.config.promptsDir);
-    const validation = await this.loader.validate();
-    if (!validation.valid) {
-      console.error(
-        `Missing required files in ${this.config.promptsDir}: ${validation.missing.join(', ')}`,
-      );
+    const providerFactory = providers[this.config.provider];
+    if (!providerFactory) {
+      console.error(`Unsupported provider: ${this.config.provider}`);
       process.exit(1);
     }
 
-    console.log(`Deepseek Codex CLI v1.0`);
-    console.log(`Provider:  ${this.provider.providerName}`);
-    console.log(
-      `Model:     ${this.config.model ?? (this.provider as DeepSeekProvider).defaultModel}`,
-    );
-    console.log(`Prompts:   ${this.config.promptsDir}/`);
-    console.log(`Spec:      ${this.config.promptsDir}/technical-specification.md`);
-    console.log(`\nType /help for commands.\n`);
+    this.provider = providerFactory();
+
+    if (this.config.apiKey) {
+      if (this.provider instanceof DeepSeekProvider) {
+        this.provider.setApiKey(this.config.apiKey);
+      }
+    }
+
+    if (this.config.baseUrl) {
+      if (this.provider instanceof DeepSeekProvider) {
+        this.provider.setBaseUrl(this.config.baseUrl);
+      }
+    }
+
+    if (this.config.model) {
+      if (this.provider instanceof DeepSeekProvider) {
+        this.provider.setDefaultModel(this.config.model);
+      }
+    }
+
+    this.loader = new PromptLoader(this.config.promptsDir);
+
+    const validation = await this.loader.validate();
+    if (!validation.valid) {
+      console.error("Missing required prompt files:");
+      for (const file of validation.missing) {
+        console.error(`  - ${file}`);
+      }
+      process.exit(1);
+    }
+
+    this.session = new ReplSession(this.provider, this.loader);
   }
 
   async run(): Promise<void> {
-    const session = new ReplSession(this.provider, this.loader);
-    await session.start();
+    const modelName = this.config.model || "deepseek-v4-pro";
+
+    console.log("Deepseek Codex CLI v1.0");
+    console.log(`Provider:  ${this.provider.providerName}`);
+    console.log(`Model:     ${modelName}`);
+    console.log(`Prompts:   ${this.config.promptsDir}/`);
+    console.log(`Spec:      ${this.config.promptsDir}/technical-specification.md`);
+    console.log();
+    console.log("Type /help for commands.");
+    console.log();
+
+    await this.session.start();
   }
 }

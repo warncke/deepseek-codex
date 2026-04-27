@@ -1,14 +1,30 @@
-#!/usr/bin/env node
-import { DeepseekCodexApp } from './DeepseekCodexApp.js';
-import { AppConfig } from './AppConfig.js';
+import { AppConfig } from "./AppConfig.js";
+import { DeepseekCodexApp } from "./DeepseekCodexApp.js";
 
-const config = new AppConfig(process.argv);
-const app = new DeepseekCodexApp(config);
+async function main(): Promise<void> {
+  const config = new AppConfig(process.argv);
 
-try {
-  await app.initialize();
-  await app.run();
-} catch (err) {
-  console.error('Fatal error:', err instanceof Error ? err.message : String(err));
-  process.exit(1);
+  if (process.version) {
+    const version = process.version.slice(1);
+    const major = parseInt(version.split(".")[0], 10);
+    if (major < 24) {
+      console.warn(`Warning: Node.js ≥ 24.15.0 LTS is recommended (current: ${process.version})`);
+    }
+  }
+
+  const app = new DeepseekCodexApp(config);
+
+  try {
+    await app.initialize();
+    await app.run();
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error(`Error: ${err.message}`);
+    } else {
+      console.error("An unexpected error occurred:", err);
+    }
+    process.exit(1);
+  }
 }
+
+main();

@@ -1,5 +1,7 @@
+import type { ReplSession } from "./ReplSession.js";
+
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
@@ -7,8 +9,8 @@ export interface ChatOptions {
   model?: string;
   temperature?: number;
   maxTokens?: number;
-  thinking?: { type: 'enabled' | 'disabled' };
-  reasoningEffort?: 'high' | 'max';
+  thinking?: { type: "enabled" | "disabled" };
+  reasoningEffort?: "high" | "max";
   stream?: boolean;
 }
 
@@ -20,5 +22,5 @@ export interface IInferenceProvider {
 
 export interface IReplCommand {
   readonly description: string;
-  execute(args: string[], session: any): Promise<void>;
+  execute(args: string[], session: ReplSession): Promise<void>;
 }

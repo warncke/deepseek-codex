@@ -6,31 +6,30 @@ export class AppConfig {
   readonly apiKey?: string;
 
   constructor(argv: string[]) {
-    let promptsDir = './prompts';
-    let provider = 'deepseek';
+    const args = argv.slice(2);
+
+    let promptsDir = "./prompts";
+    let provider = "deepseek";
     let baseUrl: string | undefined;
     let model: string | undefined;
     let apiKey: string | undefined;
 
-    for (let i = 2; i < argv.length; i++) {
-      const arg = argv[i];
-      switch (arg) {
-        case '--prompts-dir':
-          promptsDir = argv[++i];
+    for (let i = 0; i < args.length; i++) {
+      switch (args[i]) {
+        case "--prompts-dir":
+          promptsDir = args[++i] || promptsDir;
           break;
-        case '--provider':
-          provider = argv[++i];
+        case "--provider":
+          provider = args[++i] || provider;
           break;
-        case '--base-url':
-          baseUrl = argv[++i];
+        case "--base-url":
+          baseUrl = args[++i];
           break;
-        case '--model':
-          model = argv[++i];
+        case "--model":
+          model = args[++i];
           break;
-        case '--api-key':
-          apiKey = argv[++i];
-          break;
-        default:
+        case "--api-key":
+          apiKey = args[++i];
           break;
       }
     }
