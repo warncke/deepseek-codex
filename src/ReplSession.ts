@@ -1,6 +1,7 @@
 import * as readline from 'node:readline';
 import type { ChatMessage, IInferenceProvider, IReplCommand } from './interfaces.js';
 import type { PromptLoader } from './PromptLoader.js';
+import { showInteractiveSpec } from './SpecTreeView.js';
 
 export class ReplSession {
   readonly provider: IInferenceProvider;
@@ -106,16 +107,34 @@ export class ReplSession {
     });
 
     this.registerCommand('spec', {
-      description: 'Print the current technical specification',
+      description: 'Display the technical specification as an interactive collapsible tree',
       execute: async (_args, session) => {
         try {
           const spec = await session.loader.loadTechnicalSpec();
-          console.log(spec);
+          if (this.rl) {
+            this.rl.close();
+            this.rl = null;
+          }
+          await showInteractiveSpec(spec);
+          this.rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+            prompt: '> ',
+          });
+          this.rl.prompt();
         } catch (err) {
           console.error(
             'Failed to load technical specification:',
             err instanceof Error ? err.message : String(err),
           );
+          if (!this.rl) {
+            this.rl = readline.createInterface({
+              input: process.stdin,
+              output: process.stdout,
+              prompt: '> ',
+            });
+          }
+          this.rl.prompt();
         }
       },
     });

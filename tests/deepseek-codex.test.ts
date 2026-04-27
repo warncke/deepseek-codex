@@ -301,4 +301,194 @@ describe('ReplSession', () => {
     expect(runCmd).toBeDefined();
     expect(runCmd?.description).toContain('Load a prompt');
   });
+
+  it('should have spec command with interactive description', () => {
+    const specCmd = session.commands.get('spec');
+    expect(specCmd).toBeDefined();
+    expect(specCmd?.description).toContain('interactive collapsible tree');
+  });
+});
+
+describe('SpecTreeView', () => {
+  it('should parse top-level headings', async () => {
+    const { parseMarkdownHeadings } = await import('../src/SpecTreeView.js');
+    const markdown = '# Title\n\nSome text\n\n## Section 1\n\nContent\n\n## Section 2\n\nMore';
+    const nodes = parseMarkdownHeadings(markdown);
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].level).toBe(1);
+    expect(nodes[0].text).toBe('Title');
+    expect(nodes[0].children).toHaveLength(2);
+    expect(nodes[0].children[0].text).toBe('Section 1');
+    expect(nodes[0].children[1].text).toBe('Section 2');
+  });
+
+  it('should parse multiple top-level H2 headings', async () => {
+    const { parseMarkdownHeadings } = await import('../src/SpecTreeView.js');
+    const markdown = '## Overview\n\nText\n\n## Details\n\nMore';
+    const nodes = parseMarkdownHeadings(markdown);
+    expect(nodes).toHaveLength(2);
+    expect(nodes[0].text).toBe('Overview');
+    expect(nodes[1].text).toBe('Details');
+  });
+
+  it('should handle nested headings at various levels', async () => {
+    const { parseMarkdownHeadings } = await import('../src/SpecTreeView.js');
+    const markdown = '# H1\n\n## H2\n\n### H3\n\n#### H4\n\n##### H5\n\n###### H6';
+    const nodes = parseMarkdownHeadings(markdown);
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].children).toHaveLength(1);
+    expect(nodes[0].children[0].children).toHaveLength(1);
+    expect(nodes[0].children[0].children[0].children).toHaveLength(1);
+    expect(nodes[0].children[0].children[0].children[0].children).toHaveLength(1);
+    expect(nodes[0].children[0].children[0].children[0].children[0].children).toHaveLength(1);
+  });
+
+  it('should return empty array for markdown with no headings', async () => {
+    const { parseMarkdownHeadings } = await import('../src/SpecTreeView.js');
+    const nodes = parseMarkdownHeadings('Just some text\n\nNo headings here');
+    expect(nodes).toHaveLength(0);
+  });
+
+  it('should set expanded based on level', async () => {
+    const { parseMarkdownHeadings } = await import('../src/SpecTreeView.js');
+    const markdown = '# H1\n\n## H2\n\n### H3\n\n#### H4';
+    const nodes = parseMarkdownHeadings(markdown);
+    expect(nodes[0].expanded).toBe(true);
+    expect(nodes[0].children[0].expanded).toBe(true);
+    expect(nodes[0].children[0].children[0].expanded).toBe(false);
+    expect(nodes[0].children[0].children[0].children[0].expanded).toBe(false);
+  });
+
+  it('should render tree with box drawing characters', async () => {
+    const { parseMarkdownHeadings, renderTree } = await import('../src/SpecTreeView.js');
+    const markdown = '# Title\n\n## Section 1\n\n### Subsection';
+    const nodes = parseMarkdownHeadings(markdown);
+    const output = renderTree(nodes, 0);
+    expect(output).toContain('\u250C');
+    expect(output).toContain('\u2510');
+    expect(output).toContain('\u2514');
+    expect(output).toContain('\u2518');
+    expect(output).toContain('Technical Specification');
+    expect(output).toContain('\u25BC');
+    expect(output).toContain('\u2022');
+    expect(output).toContain('>');
+  });
+
+  it('should render tree with correct heading text', async () => {
+    const { parseMarkdownHeadings, renderTree } = await import('../src/SpecTreeView.js');
+    const markdown = '# Main Title\n\n## Section One';
+    const nodes = parseMarkdownHeadings(markdown);
+    const output = renderTree(nodes, 0);
+    expect(output).toContain('Main Title');
+    expect(output).toContain('Section One');
+  });
+
+  it('should have exactly one > marker when an item is selected', async () => {
+    const { parseMarkdownHeadings, renderTree } = await import('../src/SpecTreeView.js');
+    const markdown = '# H1\n\n## H2a\n\n## H2b\n\n### H3a\n\n### H3b';
+    const nodes = parseMarkdownHeadings(markdown);
+    const output = renderTree(nodes, 0);
+    const markerCount = (output.match(/>/g) || []).length;
+    expect(markerCount).toBe(1);
+  });
+
+  it('should have exactly one > marker when a middle item is selected', async () => {
+    const { parseMarkdownHeadings, renderTree } = await import('../src/SpecTreeView.js');
+    const markdown = '# H1\n\n## H2a\n\n## H2b\n\n### H3a\n\n### H3b';
+    const nodes = parseMarkdownHeadings(markdown);
+    const output = renderTree(nodes, 2);
+    const markerCount = (output.match(/>/g) || []).length;
+    expect(markerCount).toBe(1);
+  });
+
+  it('should have exactly one > marker when last item is selected', async () => {
+    const { parseMarkdownHeadings, renderTree } = await import('../src/SpecTreeView.js');
+    const markdown = '# H1\n\n## H2a\n\n## H2b\n\n### H3a\n\n### H3b';
+    const nodes = parseMarkdownHeadings(markdown);
+    const flat = (await import('../src/SpecTreeView.js')).flattenTree;
+    const flatItems = flat(nodes);
+    const lastIndex = flatItems.length - 1;
+    const output = renderTree(nodes, lastIndex);
+    const markerCount = (output.match(/>/g) || []).length;
+    expect(markerCount).toBe(1);
+  });
+
+  it('should have no > markers when selectedIndex is out of range', async () => {
+    const { parseMarkdownHeadings, renderTree } = await import('../src/SpecTreeView.js');
+    const markdown = '# H1\n\n## H2a';
+    const nodes = parseMarkdownHeadings(markdown);
+    const output = renderTree(nodes, 999);
+    const markerCount = (output.match(/>/g) || []).length;
+    expect(markerCount).toBe(0);
+  });
+
+  it('should move > marker when selectedIndex changes', async () => {
+    const { parseMarkdownHeadings, renderTree } = await import('../src/SpecTreeView.js');
+    const markdown = '# H1\n\n## H2a\n\n## H2b';
+    const nodes = parseMarkdownHeadings(markdown);
+    const output0 = renderTree(nodes, 0);
+    const output1 = renderTree(nodes, 1);
+    const lines0 = output0.split('\n');
+    const lines1 = output1.split('\n');
+    const selectedLine0 = lines0.find((l) => l.startsWith('\u2502>'));
+    const selectedLine1 = lines1.find((l) => l.startsWith('\u2502>'));
+    expect(selectedLine0).toContain('H1');
+    expect(selectedLine1).toContain('H2a');
+  });
+
+  it('should parse body text between headings', async () => {
+    const { parseMarkdownHeadings } = await import('../src/SpecTreeView.js');
+    const markdown =
+      '# Title\n\nSome body content\n\nMore body\n\n## Section 1\n\nSection body text';
+    const nodes = parseMarkdownHeadings(markdown);
+    expect(nodes[0].body).toContain('Some body content');
+    expect(nodes[0].body).toContain('More body');
+    expect(nodes[0].children[0].body).toBe('Section body text');
+  });
+
+  it('should have empty body for heading with no body text', async () => {
+    const { parseMarkdownHeadings } = await import('../src/SpecTreeView.js');
+    const markdown = '# Title\n\n## Section 1';
+    const nodes = parseMarkdownHeadings(markdown);
+    expect(nodes[0].body).toBe('');
+    expect(nodes[0].children[0].body).toBe('');
+  });
+
+  it('should render body content with box drawing framing when showBody is true', async () => {
+    const { parseMarkdownHeadings, renderTree } = await import('../src/SpecTreeView.js');
+    const markdown = '# Title\n\nBody line 1\n\nBody line 2\n\n## Section';
+    const nodes = parseMarkdownHeadings(markdown);
+    nodes[0].showBody = true;
+    const output = renderTree(nodes, 0);
+    expect(output).toContain('\u250C');
+    expect(output).toContain('\u2514');
+    expect(output).toContain('\u2502');
+    expect(output).toContain('Body line 1');
+    expect(output).toContain('Body line 2');
+  });
+
+  it('should not render body content when showBody is false', async () => {
+    const { parseMarkdownHeadings, renderTree } = await import('../src/SpecTreeView.js');
+    const markdown = '# Title\n\nHidden body text\n\n## Section';
+    const nodes = parseMarkdownHeadings(markdown);
+    nodes[0].showBody = false;
+    const output = renderTree(nodes, 0);
+    expect(output).not.toContain('Hidden body text');
+  });
+
+  it('should include expand body hint in bottom border', async () => {
+    const { parseMarkdownHeadings, renderTree } = await import('../src/SpecTreeView.js');
+    const markdown = '# Title';
+    const nodes = parseMarkdownHeadings(markdown);
+    const output = renderTree(nodes, 0);
+    expect(output).toContain('expand body');
+  });
+
+  it('should have showBody default to false', async () => {
+    const { parseMarkdownHeadings } = await import('../src/SpecTreeView.js');
+    const markdown = '# Title\n\nBody text\n\n## Section';
+    const nodes = parseMarkdownHeadings(markdown);
+    expect(nodes[0].showBody).toBe(false);
+    expect(nodes[0].children[0].showBody).toBe(false);
+  });
 });
