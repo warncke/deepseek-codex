@@ -5,7 +5,7 @@ An interactive command-line tool for AI-assisted system design. It provides a RE
 ## Installation
 
 ```bash
-npx deepseek-codex
+npx @opensassi/deepseek-codex
 ```
 
 Requires Node.js ≥ 24.15.0 LTS.
@@ -21,7 +21,7 @@ export DEEPSEEK_API_KEY=your-api-key-here
 Run the CLI:
 
 ```bash
-npx deepseek-codex
+npx @opensassi/deepseek-codex
 ```
 
 ### REPL Commands
