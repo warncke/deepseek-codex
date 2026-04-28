@@ -9,9 +9,9 @@
 
 ## Directories & Files
 
-- `src/` – TypeScript sources.
+- `src/` – TypeScript sources and co-located `.test.ts` files.
 - `lib/` – compiled output (ignored).
-- `tests/` – Jest tests.
+- `tests/` – shared test helpers only (`test-helper.ts`). Do not place test files here; co-locate them in `src/`.
 - `bin/` – executable (`deepseek-codex.mjs`).
 - `prompts/` – **user‑managed** – do not create, modify, or delete anything inside unless the user explicitly asks.
 - Do not modify `.clinerules` unless requested.
@@ -34,31 +34,45 @@ When asked to create or update `README.md`, **derive it from the TECHNICAL SPECI
 
 Never hard‑code content – extract actual values (model names, command options, default paths) from the spec.
 
-## Development Workflow (TDD)
+## Development Workflow (TDD + Coverage-Driven)
 
 For any code change:
 
 1. **Read the spec** – understand the desired behaviour.
-2. **Write tests** that define the change (fail first).
-3. **Run tests** – confirm they fail.
-4. **Implement** the minimal code to make tests pass.
-5. **Run all tests** – ensure no regressions.
-6. **Run TypeScript** – `npx tsc` must succeed.
-7. **Refactor** as needed, keeping tests green.
-8. **Do not modify `prompts/`** – tests must mock file I/O.
+2. **Run coverage report** – `npm run test` to establish baseline.
+3. **Write tests** that define the change (fail first).
+4. **Run tests** – confirm they fail. If tests pass before implementation, the test does not validate the expected behaviour — rewrite.
+5. **Implement** the minimal code to make tests pass.
+6. **Run all tests** – ensure no regressions and coverage thresholds are met.
+7. **If coverage exits with code 1**, review the uncovered lines in the report, add targeted tests, and repeat until `npm run test` exits 0.
+8. **Run TypeScript** – `npx tsc` must succeed.
+9. **Refactor** as needed, keeping tests green.
+10. **Do not modify `prompts/`** – tests must mock file I/O.
 
 ## Testing Rules
 
-- Mock `fs/promises` for `PromptLoader`.
-- Mock `global.fetch` for `DeepSeekProvider` (test 200, 401, 429, retries).
-- For interactive terminal features (e.g., tree viewer), test only pure parsing/rendering functions. Do not test raw I/O.
-- No tests that call a live API.
+- **Test file location**: Tests are co-located with source files. A file `src/Foo.ts` has its tests in `src/Foo.test.ts`. Shared test utilities live in `tests/test-helper.ts`.
+- **Test helper utilities** (from `tests/test-helper.ts`):
+  - `setupFsMocks()` – call at the top level of the test file (outside any lifecycle hook), before the dynamic `import()` of the module under test. This ensures the mock is registered before module resolution.
+  - `createMockProvider()` – returns a mocked `IInferenceProvider` for `ReplSession` tests.
+  - `createMockLoader()` – returns a mocked `PromptLoader` for `ReplSession` tests.
+  - `withEnvVar(name, value, fn)` – temporarily sets an env var for a synchronous test block. For async tests, use `beforeEach`/`afterEach` to set and restore the env var manually, as `withEnvVar` does not await the callback.
+- **Mocking patterns**:
+  - Mock `global.fetch` for `DeepSeekProvider` (test 200, 401, 429, retries, network failures, null/string rejections, missing content).
+  - Mock `node:readline` via `jest.unstable_mockModule` in `beforeAll`, then dynamically import the module under test.
+  - Mock `node:fs/promises` via `jest.unstable_mockModule` for `PromptLoader`.
+  - For interactive terminal features (e.g., tree viewer), test only pure parsing/rendering functions. Do not test raw I/O.
+  - For `showInteractiveSpec`, mock `process.stdin` properties (`isTTY`, `isRaw`, `setRawMode`, `on`, `removeListener`, `resume`, `pause`, `setEncoding`) and `process.stdout.write`.
+- **Error handling coverage**: For every `catch` block, write two tests: one where the caught value is an `Error` instance, and one where it is a non-Error (e.g., a string). Verify `console.error` is called with the expected message.
+- **No tests that call a live API**.
+- **No tests for `console.log` or `console.error` statements**.
 
 ## Quality Gates
 
 - `npm run lint` must pass.
 - `npm run format` must be applied.
 - `tsc --noEmit` must succeed.
+- `npm run test` must exit with code 0 (coverage thresholds: statements ≥90%, branches ≥90%, functions ≥90%, lines ≥90% — see `jest.config.cjs`).
 
 # TECHNICAL SPECIFICATION
 
